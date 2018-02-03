@@ -14,7 +14,7 @@ FindWDK makes it possible to build kernel drivers and kernel libraries with Wind
 
 Requirements:
 - WDK10
-- Visual Studio 2012 and higher
+- Visual Studio 2015 and higher
 - CMake 3.0 and higher
 
 # Usage

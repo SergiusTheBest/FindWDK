@@ -1,19 +1,11 @@
 image: Visual Studio 2017
 
-configuration:
-  - Debug
-  - Release
-
 environment:
   matrix:
     - generator: "Visual Studio 15 2017"
     - generator: "Visual Studio 15 2017 Win64"
     - generator: "Visual Studio 14 2015"
     - generator: "Visual Studio 14 2015 Win64"
-    - generator: "Visual Studio 12 2013"
-    - generator: "Visual Studio 12 2013 Win64"    
-    - generator: "Visual Studio 11 2012"
-    - generator: "Visual Studio 11 2012 Win64"
 
 matrix:
   fast_finish: true
@@ -21,7 +13,8 @@ matrix:
 shallow_clone: true
 
 before_build:
-  - cmake -Hsamples -Bbuild -G"%generator%" -DCMAKE_BUILD_TYPE=%configuration%
+  - cmake -Hsamples -Bbuild -G"%generator%"
 
 build_script:
-  - cmake --build build --config %configuration% -- /m /v:m
+  - cmake --build build --config Debug -- /m /v:m
+  - cmake --build build --config Release -- /m /v:m
