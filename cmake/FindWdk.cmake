@@ -56,7 +56,18 @@ set(WDK_WINVER "0x0601" CACHE STRING "Default WINVER for WDK targets")
 set(WDK_ADDITIONAL_FLAGS_FILE "${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/wdkflags.h")
 file(WRITE ${WDK_ADDITIONAL_FLAGS_FILE} "#pragma runtime_checks(\"suc\", off)")
 
+foreach(WARN_FLAG
+    CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
+    CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
+    CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+    CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+    string(REGEX REPLACE "/W3" "" ${WARN_FLAG} "${${WARN_FLAG}}")
+    string(REGEX REPLACE "/GR" "" ${WARN_FLAG} "${${WARN_FLAG}}")
+endforeach()
+
 set(WDK_COMPILE_FLAGS
+    "/W4" # set warning level to 4
+    "/WX" # treat warnings as errors
     "/Zp8" # set struct alignment
     "/GF"  # enable string pooling
     "/GR-" # disable RTTI
