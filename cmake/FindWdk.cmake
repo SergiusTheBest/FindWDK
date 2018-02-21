@@ -69,10 +69,10 @@ set(WDK_COMPILE_FLAGS
 set(WDK_COMPILE_DEFINITIONS "WINNT=1")
 set(WDK_COMPILE_DEFINITIONS_DEBUG "MSC_NOOPT;DEPRECATE_DDK_FUNCTIONS=1;DBG=1")
 
-if(CMAKE_SIZEOF_VOID_P  EQUAL 4)
+if(CMAKE_SIZEOF_VOID_P EQUAL 4)
     list(APPEND WDK_COMPILE_DEFINITIONS "_X86_=1;i386=1;STD_CALL")
     set(WDK_PLATFORM "x86")
-elseif(CMAKE_SIZEOF_VOID_P  EQUAL 8)
+elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
     list(APPEND WDK_COMPILE_DEFINITIONS "_WIN64;_AMD64_;AMD64")
     set(WDK_PLATFORM "x64")
 else()
@@ -94,7 +94,9 @@ string(CONCAT WDK_LINK_FLAGS
 
 function(wdk_add_driver _target)
     cmake_parse_arguments(WDK "" "KMDF;WINVER" "" ${ARGN})
-    
+
+    link_directories("${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}")
+
     add_executable(${_target} ${WDK_UNPARSED_ARGUMENTS})
 
     set_target_properties(${_target} PROPERTIES SUFFIX ".sys")
@@ -109,14 +111,9 @@ function(wdk_add_driver _target)
         "${WDK_ROOT}/Include/${WDK_VERSION}/km"
         )
 
-    target_link_libraries(${_target}
-        "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/ntoskrnl.lib"
-        "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/hal.lib"
-        "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/BufferOverflowK.lib"
-        "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/wmilib.lib"
-        )
+    target_link_libraries(${_target} ntoskrnl hal BufferOverflowK wmilib)
 
-    if(CMAKE_SIZEOF_VOID_P  EQUAL 4)
+    if(CMAKE_SIZEOF_VOID_P EQUAL 4)
         target_link_libraries(${_target} "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/memcmp.lib")
     endif()
 
@@ -127,13 +124,13 @@ function(wdk_add_driver _target)
             "${WDK_ROOT}/Lib/wdf/kmdf/${WDK_PLATFORM}/${WDK_KMDF}/WdfLdr.lib"
             )
 
-        if(CMAKE_SIZEOF_VOID_P  EQUAL 4)
+        if(CMAKE_SIZEOF_VOID_P EQUAL 4)
             set_property(TARGET ${_target} APPEND_STRING PROPERTY LINK_FLAGS "/ENTRY:FxDriverEntry@8")
         elseif(CMAKE_SIZEOF_VOID_P  EQUAL 8)
             set_property(TARGET ${_target} APPEND_STRING PROPERTY LINK_FLAGS "/ENTRY:FxDriverEntry")
         endif()
     else()
-        if(CMAKE_SIZEOF_VOID_P  EQUAL 4)
+        if(CMAKE_SIZEOF_VOID_P EQUAL 4)
             set_property(TARGET ${_target} APPEND_STRING PROPERTY LINK_FLAGS "/ENTRY:GsDriverEntry@8")
         elseif(CMAKE_SIZEOF_VOID_P  EQUAL 8)
             set_property(TARGET ${_target} APPEND_STRING PROPERTY LINK_FLAGS "/ENTRY:GsDriverEntry")
