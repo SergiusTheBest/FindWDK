@@ -5,6 +5,7 @@ CMake module for building drivers with Windows Development Kit (WDK) [![Build st
 - [Usage](#usage)
   - [Kernel driver](#kernel-driver)
   - [Kernel library](#kernel-library)
+  - [Linking to WDK libraries](#linking-to-wdk-libraries)
 - [Samples](#samples)
 - [License](#license)
 - [Version history](#version-history)
@@ -87,6 +88,13 @@ wdk_add_library(KmdfCppLib STATIC
     )
 ```
 
+## Linking to WDK libraries
+FindWDK creates imported targets for all WDK libraries. The naming pattern is `WDK::<UPPERCASED_LIBNAME>`. Linking a minifilter driver to `FltMgr.lib` is shown below:
+
+```cmake
+target_link_libraries(MinifilterCppDriver WDK::FLTMGR)
+```
+
 # Samples
 Take a look at the [samples](samples) folder to see how WMD and KMDF drivers and libraries are built.
 
@@ -94,6 +102,11 @@ Take a look at the [samples](samples) folder to see how WMD and KMDF drivers and
 FindWDK is licensed under the OSI-approved 3-clause BSD license. You can freely use it in your commercial or opensource software.
 
 # Version history
+
+## Version 1.0.1 (13 Mar 2018)
+- New: Add ability to link to WDK libraries
+- New: Add MinifilterCppDriver sample
+- Fix: W4 warnings in C version of the driver, add missing /W4 /WX for C compiler
 
 ## Version 1.0.0 (03 Feb 2018)
 - Initial public release

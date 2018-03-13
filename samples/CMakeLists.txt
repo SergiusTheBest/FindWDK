@@ -12,6 +12,7 @@ find_package(WDK REQUIRED)
 
 add_subdirectory(KmdfCppDriver)
 add_subdirectory(KmdfCppLib)
+add_subdirectory(MinifilterCppDriver)
 add_subdirectory(WdmCppDriver)
 add_subdirectory(WdmCppLib)
 add_subdirectory(WdmDriver)

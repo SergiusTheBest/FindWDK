@@ -28,7 +28,7 @@
 #   wdk_add_driver(KmdfCppDriver KMDF 1.15
 #       Main.cpp
 #       )
-#    target_link_libraries(KmdfCppDriver KmdfCppLib)
+#   target_link_libraries(KmdfCppDriver KmdfCppLib)
 #
 
 file(GLOB WDK_NTDDK_FILES
@@ -69,10 +69,10 @@ set(WDK_COMPILE_FLAGS
 set(WDK_COMPILE_DEFINITIONS "WINNT=1")
 set(WDK_COMPILE_DEFINITIONS_DEBUG "MSC_NOOPT;DEPRECATE_DDK_FUNCTIONS=1;DBG=1")
 
-if(CMAKE_SIZEOF_VOID_P  EQUAL 4)
+if(CMAKE_SIZEOF_VOID_P EQUAL 4)
     list(APPEND WDK_COMPILE_DEFINITIONS "_X86_=1;i386=1;STD_CALL")
     set(WDK_PLATFORM "x86")
-elseif(CMAKE_SIZEOF_VOID_P  EQUAL 8)
+elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
     list(APPEND WDK_COMPILE_DEFINITIONS "_WIN64;_AMD64_;AMD64")
     set(WDK_PLATFORM "x64")
 else()
@@ -92,9 +92,19 @@ string(CONCAT WDK_LINK_FLAGS
     "/VERSION:10.0 " #
     )
 
+# Generate imported targets for WDK lib files
+file(GLOB WDK_LIBRARIES "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/*.lib")    
+foreach(LIBRARY IN LISTS WDK_LIBRARIES)
+    get_filename_component(LIBRARY_NAME ${LIBRARY} NAME_WE)
+    string(TOUPPER ${LIBRARY_NAME} LIBRARY_NAME)
+    add_library(WDK::${LIBRARY_NAME} INTERFACE IMPORTED)
+    set_property(TARGET WDK::${LIBRARY_NAME} PROPERTY INTERFACE_LINK_LIBRARIES  ${LIBRARY})
+endforeach(LIBRARY)
+unset(WDK_LIBRARIES)
+
 function(wdk_add_driver _target)
     cmake_parse_arguments(WDK "" "KMDF;WINVER" "" ${ARGN})
-    
+
     add_executable(${_target} ${WDK_UNPARSED_ARGUMENTS})
 
     set_target_properties(${_target} PROPERTIES SUFFIX ".sys")
@@ -109,15 +119,10 @@ function(wdk_add_driver _target)
         "${WDK_ROOT}/Include/${WDK_VERSION}/km"
         )
 
-    target_link_libraries(${_target}
-        "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/ntoskrnl.lib"
-        "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/hal.lib"
-        "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/BufferOverflowK.lib"
-        "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/wmilib.lib"
-        )
+    target_link_libraries(${_target} WDK::NTOSKRNL WDK::HAL WDK::BUFFEROVERFLOWK WDK::WMILIB)
 
-    if(CMAKE_SIZEOF_VOID_P  EQUAL 4)
-        target_link_libraries(${_target} "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/memcmp.lib")
+    if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+        target_link_libraries(${_target} WDK::MEMCMP)
     endif()
 
     if(DEFINED WDK_KMDF)
@@ -127,13 +132,13 @@ function(wdk_add_driver _target)
             "${WDK_ROOT}/Lib/wdf/kmdf/${WDK_PLATFORM}/${WDK_KMDF}/WdfLdr.lib"
             )
 
-        if(CMAKE_SIZEOF_VOID_P  EQUAL 4)
+        if(CMAKE_SIZEOF_VOID_P EQUAL 4)
             set_property(TARGET ${_target} APPEND_STRING PROPERTY LINK_FLAGS "/ENTRY:FxDriverEntry@8")
         elseif(CMAKE_SIZEOF_VOID_P  EQUAL 8)
             set_property(TARGET ${_target} APPEND_STRING PROPERTY LINK_FLAGS "/ENTRY:FxDriverEntry")
         endif()
     else()
-        if(CMAKE_SIZEOF_VOID_P  EQUAL 4)
+        if(CMAKE_SIZEOF_VOID_P EQUAL 4)
             set_property(TARGET ${_target} APPEND_STRING PROPERTY LINK_FLAGS "/ENTRY:GsDriverEntry@8")
         elseif(CMAKE_SIZEOF_VOID_P  EQUAL 8)
             set_property(TARGET ${_target} APPEND_STRING PROPERTY LINK_FLAGS "/ENTRY:GsDriverEntry")
