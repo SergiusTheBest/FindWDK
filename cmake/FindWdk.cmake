@@ -42,6 +42,10 @@ endif()
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(WDK REQUIRED_VARS WDK_LATEST_NTDDK_FILE)
 
+if (NOT WDK_LATEST_NTDDK_FILE)
+    return()
+endif()
+
 get_filename_component(WDK_ROOT ${WDK_LATEST_NTDDK_FILE} DIRECTORY)
 get_filename_component(WDK_ROOT ${WDK_ROOT} DIRECTORY)
 get_filename_component(WDK_VERSION ${WDK_ROOT} NAME)
