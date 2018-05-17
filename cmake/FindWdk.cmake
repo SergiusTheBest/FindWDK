@@ -31,6 +31,8 @@
 #   target_link_libraries(KmdfCppDriver KmdfCppLib)
 #
 
+find_package(WindowsSDK) # the headers are needed
+
 if ( DEFINED ENV{WindowsSdkDir} )
     file(GLOB WDK_NTDDK_FILES
         "$ENV{WindowsSdkDir}/Include/*/km/ntddk.h"
@@ -48,9 +50,35 @@ endif()
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(WDK REQUIRED_VARS WDK_LATEST_NTDDK_FILE)
 
-if (NOT WDK_LATEST_NTDDK_FILE)
-    return()
-endif()
+if (MINGW)
+    get_filename_component(MINGW_BIN_DIR ${CMAKE_RC_COMPILER} DIRECTORY)
+    get_filename_component(MINGW_DIR ${MINGW_BIN_DIR} DIRECTORY)
+    if(REACTOS_SDK)
+        set(REACTOS_DDK "${REACTOS_SDK}/include/ddk" CACHE PATH "The path to ReactOS DDK")
+        set(REACTOS_CRT_HEADERS "${REACTOS_SDK}/include/CRT" CACHE PATH "The path to ReactOS CRT headers")
+        set(REACTOS_PSDK_HEADERS "${REACTOS_SDK}/include/psdk" CACHE PATH "The path to ReactOS PSDK headers")
+        set(REACTOS_XDK_HEADERS "${REACTOS_SDK}/include/xdk" CACHE PATH "The path to ReactOS XDK headers")
+    endif(REACTOS_SDK)
+    message( STATUS "MINGW_DIR ${MINGW_DIR}")
+    
+    file(GLOB MINGW_INCLUDE_EXCPT_HS "${MINGW_DIR}/*/include/excpt.h")
+    list(GET MINGW_INCLUDE_EXCPT_HS -1 MINGW_INCLUDE_EXCPT_H)
+    get_filename_component(MINGW_INCLUDE_DIR ${MINGW_INCLUDE_EXCPT_H} DIRECTORY)
+    
+    set(MINGW_INCLUDE_DIR "${MINGW_INCLUDE_DIR}" CACHE PATH "The path to MinGW include")
+    set(MINGW_DDK "${MINGW_INCLUDE_DIR}/ddk" CACHE PATH "The path to MinGW DDK")
+    
+    if (NOT MINGW_DDK)
+        message(FATAL_ERROR "MINGW_DDK not found!")
+        return()
+    else()
+        message(STATUS "MINGW_DDK_ROOT: " ${MINGW_DDK})
+    endif()
+else(MINGW)
+    if (NOT WDK_LATEST_NTDDK_FILE)
+        return()
+    endif()
+endif(MINGW)
 
 get_filename_component(WDK_ROOT ${WDK_LATEST_NTDDK_FILE} DIRECTORY)
 get_filename_component(WDK_ROOT ${WDK_ROOT} DIRECTORY)
@@ -66,15 +94,43 @@ set(WDK_WINVER "0x0601" CACHE STRING "Default WINVER for WDK targets")
 set(WDK_ADDITIONAL_FLAGS_FILE "${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/wdkflags.h")
 file(WRITE ${WDK_ADDITIONAL_FLAGS_FILE} "#pragma runtime_checks(\"suc\", off)")
 
-set(WDK_COMPILE_FLAGS
-    "/Zp8" # set struct alignment
-    "/GF"  # enable string pooling
-    "/GR-" # disable RTTI
-    "/Gz" # __stdcall by default
-    "/kernel"  # create kernel mode binary
-    "/FIwarning.h" # disable warnings in WDK headers
-    "/FI${WDK_ADDITIONAL_FLAGS_FILE}" # include file to disable RTC
+if(MINGW)
+    set(WDK_COMPILE_FLAGS
+        "-shared"
+        "-nostartfiles"
+        "-nostdlib"
+        "-lntoskrnl"
+        "-lhal"
+        "-lndis"
+        "-mdll"
+        "-fno-rtti"
+        "-mrtd" # __stdcall by default
+        "-fpack-struct=8" # set struct alignment
+        "-fms-extensions" # microsoft visual c++ compatibility
+        "-fdelayed-template-parsing"
+        "-fms-compatibility"
+        "-D_MSC_VER=1300"
+        "-masm=intel" #MSVC headers use intel syntax
+        #"-std=c++17"
     )
+    include_directories(SYSTEM "${LIB_DIR}/Include")
+    #set(WDK_COMPILE_FLAGS
+    #    "/kernel"  # create kernel mode binary
+    #    "/FIwarning.h" # disable warnings in WDK headers
+    #    "/FI${WDK_ADDITIONAL_FLAGS_FILE}" # include file to disable RTC
+    #    )
+elseif(MSVC)
+    set(WDK_COMPILE_FLAGS
+        "/Zp8" # set struct alignment
+        "/GF"  # enable string pooling
+        "/GR-" # disable RTTI
+        "/Gz" # __stdcall by default
+        "/kernel"  # create kernel mode binary
+        "/FIwarning.h" # disable warnings in WDK headers
+        "/FI${WDK_ADDITIONAL_FLAGS_FILE}" # include file to disable RTC
+        )
+endif(MINGW)
+
 
 set(WDK_COMPILE_DEFINITIONS "WINNT=1")
 set(WDK_COMPILE_DEFINITIONS_DEBUG "MSC_NOOPT;DEPRECATE_DDK_FUNCTIONS=1;DBG=1")
@@ -89,18 +145,28 @@ else()
     message(FATAL_ERROR "Unsupported architecture")
 endif()
 
-string(CONCAT WDK_LINK_FLAGS
-    "/MANIFEST:NO " #
-    "/DRIVER " #
-    "/OPT:REF " #
-    "/INCREMENTAL:NO " #
-    "/OPT:ICF " #
-    "/SUBSYSTEM:NATIVE " #
-    "/MERGE:_TEXT=.text;_PAGE=PAGE " #
-    "/NODEFAULTLIB " # do not link default CRT
-    "/SECTION:INIT,d " #
-    "/VERSION:10.0 " #
+if(MINGW)
+    string(CONCAT WDK_LINK_FLAGS
+        "--subsystem,native "
+        "--image-base,0x10000 "
+        "--file-alignment,0x1000 "
+        "--section-alignment,0x1000 "
+        "--entry,_DriverEntry@8 "
     )
+elseif(MSVC)
+    string(CONCAT WDK_LINK_FLAGS
+        "/MANIFEST:NO " #
+        "/DRIVER " #
+        "/OPT:REF " #
+        "/INCREMENTAL:NO " #
+        "/OPT:ICF " #
+        "/SUBSYSTEM:NATIVE " #
+        "/MERGE:_TEXT=.text;_PAGE=PAGE " #
+        "/NODEFAULTLIB " # do not link default CRT
+        "/SECTION:INIT,d " #
+        "/VERSION:10.0 " #
+        )
+endif(MINGW)
 
 # Generate imported targets for WDK lib files
 file(GLOB WDK_LIBRARIES "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/*.lib")    
@@ -123,10 +189,16 @@ function(wdk_add_driver _target)
         "${WDK_COMPILE_DEFINITIONS};$<$<CONFIG:Debug>:${WDK_COMPILE_DEFINITIONS_DEBUG}>;_WIN32_WINNT=${WDK_WINVER}"
         )
     set_target_properties(${_target} PROPERTIES LINK_FLAGS "${WDK_LINK_FLAGS}")
-
+    
     target_include_directories(${_target} SYSTEM PRIVATE
+        #"${REACTOS_DDK}"
+        #"${REACTOS_CRT_HEADERS}"
+        #"${REACTOS_PSDK_HEADERS}"
+        #"${REACTOS_XDK_HEADERS}"
         "${WDK_ROOT}/Include/${WDK_VERSION}/shared"
         "${WDK_ROOT}/Include/${WDK_VERSION}/km"
+        "${MINGW_DDK}"
+        #"${MINGW_INCLUDE_DIR}"
         )
 
     target_link_libraries(${_target} WDK::NTOSKRNL WDK::HAL WDK::BUFFEROVERFLOWK WDK::WMILIB)
@@ -167,8 +239,14 @@ function(wdk_add_library _target)
         )
 
     target_include_directories(${_target} SYSTEM PRIVATE
+        #"${REACTOS_DDK}"
+        #"${REACTOS_CRT_HEADERS}"
+        #"${REACTOS_PSDK_HEADERS}"
+        #"${REACTOS_XDK_HEADERS}"
         "${WDK_ROOT}/Include/${WDK_VERSION}/shared"
         "${WDK_ROOT}/Include/${WDK_VERSION}/km"
+        "${MINGW_DDK}"
+        #"${MINGW_INCLUDE_DIR}"
         )
 
     if(DEFINED WDK_KMDF)
