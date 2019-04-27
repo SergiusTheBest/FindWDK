@@ -5,22 +5,26 @@
 # FindWDK
 # ----------
 #
-# This module searches for the installed Windows Development Kit (WDK) and 
+# This module searches for the installed Windows Development Kit (WDK) and
 # exposes commands for creating kernel drivers and kernel libraries.
 #
 # Output variables:
 # - `WDK_FOUND` -- if false, do not try to use WDK
 # - `WDK_ROOT` -- where WDK is installed
 # - `WDK_VERSION` -- the version of the selected WDK
-# - `WDK_WINVER` -- the WINVER used for kernel drivers and libraries 
+# - `WDK_WINVER` -- the WINVER used for kernel drivers and libraries
 #        (default value is `0x0601` and can be changed per target or globally)
+#
+# Output targets:
+# - `WDK::<LIBRARY>` -- libraries in km, UPPERCASE
+# - `WSDK::<LIBRARY>` -- libraries in um, UPPERCASE
 #
 # Example usage:
 #
 #   find_package(WDK REQUIRED)
 #
 #   wdk_add_library(KmdfCppLib STATIC KMDF 1.15
-#       KmdfCppLib.h 
+#       KmdfCppLib.h
 #       KmdfCppLib.cpp
 #       )
 #   target_include_directories(KmdfCppLib INTERFACE .)
@@ -31,7 +35,11 @@
 #   target_link_libraries(KmdfCppDriver KmdfCppLib)
 #
 
-if(DEFINED ENV{WDKContentRoot})
+if(DEFINED ENV{WindowsSdkDir})
+    file(GLOB WDK_NTDDK_FILES
+        "$ENV{WindowsSdkDir}/Include/*/km/ntddk.h"
+    )
+elseif(DEFINED ENV{WDKContentRoot})
     file(GLOB WDK_NTDDK_FILES
         "$ENV{WDKContentRoot}/Include/*/km/ntddk.h"
     )
@@ -103,7 +111,7 @@ string(CONCAT WDK_LINK_FLAGS
     )
 
 # Generate imported targets for WDK lib files
-file(GLOB WDK_LIBRARIES "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/*.lib")    
+file(GLOB WDK_LIBRARIES "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/*.lib")
 foreach(LIBRARY IN LISTS WDK_LIBRARIES)
     get_filename_component(LIBRARY_NAME ${LIBRARY} NAME_WE)
     string(TOUPPER ${LIBRARY_NAME} LIBRARY_NAME)
@@ -111,6 +119,18 @@ foreach(LIBRARY IN LISTS WDK_LIBRARIES)
     set_property(TARGET WDK::${LIBRARY_NAME} PROPERTY INTERFACE_LINK_LIBRARIES  ${LIBRARY})
 endforeach(LIBRARY)
 unset(WDK_LIBRARIES)
+
+# Generate imported targets for WDK lib files
+file(GLOB WSDK_LIBRARIES "${WDK_ROOT}/Lib/${WDK_VERSION}/um/${WDK_PLATFORM}/*.lib")
+foreach(LIBRARY IN LISTS WSDK_LIBRARIES)
+    get_filename_component(LIBRARY_NAME ${LIBRARY} NAME)
+    string(REGEX REPLACE "[.][^.]*$" "" LIBRARY_NAME ${LIBRARY_NAME})
+    string(REGEX REPLACE "[.]" "::" LIBRARY_NAME ${LIBRARY_NAME})
+    string(TOUPPER ${LIBRARY_NAME} LIBRARY_NAME)
+    add_library(WSDK::${LIBRARY_NAME} INTERFACE IMPORTED)
+    set_property(TARGET WSDK::${LIBRARY_NAME} PROPERTY INTERFACE_LINK_LIBRARIES  ${LIBRARY})
+endforeach(LIBRARY)
+unset(WSDK_LIBRARIES)
 
 function(wdk_add_driver _target)
     cmake_parse_arguments(WDK "" "KMDF;WINVER" "" ${ARGN})
@@ -162,7 +182,7 @@ function(wdk_add_library _target)
     add_library(${_target} ${WDK_UNPARSED_ARGUMENTS})
 
     set_target_properties(${_target} PROPERTIES COMPILE_OPTIONS "${WDK_COMPILE_FLAGS}")
-    set_target_properties(${_target} PROPERTIES COMPILE_DEFINITIONS 
+    set_target_properties(${_target} PROPERTIES COMPILE_DEFINITIONS
         "${WDK_COMPILE_DEFINITIONS};$<$<CONFIG:Debug>:${WDK_COMPILE_DEFINITIONS_DEBUG};_WIN32_WINNT=${WDK_WINVER}>"
         )
 
