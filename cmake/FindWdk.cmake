@@ -35,13 +35,13 @@
 #   target_link_libraries(KmdfCppDriver KmdfCppLib)
 #
 
-if(DEFINED ENV{WindowsSdkDir})
-    file(GLOB WDK_NTDDK_FILES
-        "$ENV{WindowsSdkDir}/Include/*/km/ntddk.h"
-    )
-elseif(DEFINED ENV{WDKContentRoot})
+if(DEFINED ENV{WDKContentRoot})
     file(GLOB WDK_NTDDK_FILES
         "$ENV{WDKContentRoot}/Include/*/km/ntddk.h"
+    )
+elseif(DEFINED ENV{WindowsSdkDir})
+    file(GLOB WDK_NTDDK_FILES
+        "$ENV{WindowsSdkDir}/Include/*/km/ntddk.h"
     )
 else()
     file(GLOB WDK_NTDDK_FILES
