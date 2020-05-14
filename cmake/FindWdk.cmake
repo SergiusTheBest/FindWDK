@@ -67,6 +67,7 @@ set(WDK_ADDITIONAL_FLAGS_FILE "${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTOR
 file(WRITE ${WDK_ADDITIONAL_FLAGS_FILE} "#pragma runtime_checks(\"suc\", off)")
 
 set(WDK_COMPILE_FLAGS
+    "/Oi " # for intrin
     "/Zp8" # set struct alignment
     "/GF"  # enable string pooling
     "/GR-" # disable RTTI
