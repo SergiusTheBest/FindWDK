@@ -60,7 +60,7 @@ get_filename_component(WDK_ROOT ${WDK_ROOT} DIRECTORY)
 
 message(STATUS "WDK_ROOT: " ${WDK_ROOT})
 message(STATUS "WDK_VERSION: " ${WDK_VERSION})
-
+enable_language（ASM_MASM）# for masm
 set(WDK_WINVER "0x0601" CACHE STRING "Default WINVER for WDK targets")
 
 set(WDK_ADDITIONAL_FLAGS_FILE "${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/wdkflags.h")
