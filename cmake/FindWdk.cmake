@@ -170,6 +170,7 @@ function(wdk_add_library _target)
     target_include_directories(${_target} SYSTEM PRIVATE
         "${WDK_ROOT}/Include/${WDK_VERSION}/shared"
         "${WDK_ROOT}/Include/${WDK_VERSION}/km"
+        "${WDK_ROOT}/Include/${WDK_VERSION}/km/crt"
         )
 
     if(DEFINED WDK_KMDF)
