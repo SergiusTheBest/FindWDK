@@ -2,10 +2,15 @@
 #include <wdf.h>
 #include "KmdfCppLib.h"
 
+#include <stdio.h>
+
 EVT_WDF_DRIVER_UNLOAD evtDriverUnload;
 VOID evtDriverUnload(_In_ WDFDRIVER /*driver*/)
 {
-    DbgPrint("Driver unloaded\n");
+    char msg[17];
+    _snprintf_s(msg, 17, "%s", "Driver unloaded\n");
+
+    DbgPrint(msg);
 }
 
 extern "C" DRIVER_INITIALIZE DriverEntry;
