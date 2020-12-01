@@ -74,6 +74,8 @@ set(WDK_COMPILE_FLAGS
     "/kernel"  # create kernel mode binary
     "/FIwarning.h" # disable warnings in WDK headers
     "/FI${WDK_ADDITIONAL_FLAGS_FILE}" # include file to disable RTC
+    "/W4"   # the highest warning level
+    "/WX"   # warnings as errors
     )
 
 set(WDK_COMPILE_DEFINITIONS "WINNT=1")
@@ -113,7 +115,7 @@ endforeach(LIBRARY)
 unset(WDK_LIBRARIES)
 
 function(wdk_add_driver _target)
-    cmake_parse_arguments(WDK "" "KMDF;WINVER" "" ${ARGN})
+    cmake_parse_arguments(WDK "" "KTL_ENTRY_POINT;KMDF;WINVER" "" ${ARGN})
 
     add_executable(${_target} ${WDK_UNPARSED_ARGUMENTS})
 
@@ -142,12 +144,13 @@ function(wdk_add_driver _target)
             "${WDK_ROOT}/Lib/wdf/kmdf/${WDK_PLATFORM}/${WDK_KMDF}/WdfDriverEntry.lib"
             "${WDK_ROOT}/Lib/wdf/kmdf/${WDK_PLATFORM}/${WDK_KMDF}/WdfLdr.lib"
             )
-
         if(CMAKE_SIZEOF_VOID_P EQUAL 4)
             set_property(TARGET ${_target} APPEND_STRING PROPERTY LINK_FLAGS "/ENTRY:FxDriverEntry@8")
         elseif(CMAKE_SIZEOF_VOID_P  EQUAL 8)
             set_property(TARGET ${_target} APPEND_STRING PROPERTY LINK_FLAGS "/ENTRY:FxDriverEntry")
         endif()
+    elseif(DEFINED WDK_KTL_ENTRY_POINT)
+        set_property(TARGET ${_target} APPEND_STRING PROPERTY LINK_FLAGS "/ENTRY:KtlDriverEntry")
     else()
         if(CMAKE_SIZEOF_VOID_P EQUAL 4)
             set_property(TARGET ${_target} APPEND_STRING PROPERTY LINK_FLAGS "/ENTRY:GsDriverEntry@8")
