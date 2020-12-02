@@ -30,7 +30,6 @@
 #       )
 #   target_link_libraries(KmdfCppDriver KmdfCppLib)
 #
-
 if(DEFINED ENV{WDKContentRoot})
     file(GLOB WDK_NTDDK_FILES
         "$ENV{WDKContentRoot}/Include/*/km/ntddk.h"
@@ -74,7 +73,7 @@ set(WDK_COMPILE_FLAGS
     "/kernel"  # create kernel mode binary
     "/FIwarning.h" # disable warnings in WDK headers
     "/FI${WDK_ADDITIONAL_FLAGS_FILE}" # include file to disable RTC
-    "/W4"   # the highest warning level
+    "/W4"   # last warning level
     "/WX"   # warnings as errors
     )
 
@@ -102,15 +101,19 @@ string(CONCAT WDK_LINK_FLAGS
     "/NODEFAULTLIB " # do not link default CRT
     "/SECTION:INIT,d " #
     "/VERSION:10.0 " #
-    )
+)
 
 # Generate imported targets for WDK lib files
 file(GLOB WDK_LIBRARIES "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/*.lib")    
 foreach(LIBRARY IN LISTS WDK_LIBRARIES)
     get_filename_component(LIBRARY_NAME ${LIBRARY} NAME_WE)
     string(TOUPPER ${LIBRARY_NAME} LIBRARY_NAME)
-    add_library(WDK::${LIBRARY_NAME} INTERFACE IMPORTED)
-    set_property(TARGET WDK::${LIBRARY_NAME} PROPERTY INTERFACE_LINK_LIBRARIES  ${LIBRARY})
+
+# Protect against multiple inclusion, which would fail when already imported targets are added once more.
+    if(NOT TARGET WDK::${LIBRARY_NAME})                     
+        add_library(WDK::${LIBRARY_NAME} INTERFACE IMPORTED)
+        set_property(TARGET WDK::${LIBRARY_NAME} PROPERTY INTERFACE_LINK_LIBRARIES  ${LIBRARY})
+    endif()
 endforeach(LIBRARY)
 unset(WDK_LIBRARIES)
 
