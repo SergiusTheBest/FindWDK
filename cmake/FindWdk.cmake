@@ -90,6 +90,15 @@ else()
     message(FATAL_ERROR "Unsupported architecture")
 endif()
 
+set(WINSDK ${WDK_ROOT}/bin/${WDK_VERSION}/${WDK_PLATFORM})
+set(OPENSSL "openssl.exe")
+set(MAKECERT "${WINSDK}/makecert.exe")
+set(CERTUTIL "certutil.exe")
+set(CERTMGR "certmgr.exe")
+set(CERT2SPC "cert2spc.exe")
+set(PVK2PFX "${WINSDK}/pvk2pfx.exe")
+set(SIGNTOOL "${WINSDK}/signtool.exe")
+
 string(CONCAT WDK_LINK_FLAGS
     "/MANIFEST:NO " #
     "/DRIVER " #
@@ -116,6 +125,20 @@ foreach(LIBRARY IN LISTS WDK_LIBRARIES)
     endif()
 endforeach(LIBRARY)
 unset(WDK_LIBRARIES)
+
+macro (TODAY RESULT)
+    if(WIN32)
+        execute_process(COMMAND "cmd" " /C date /T" OUTPUT_VARIABLE ${RESULT})
+        string(REGEX REPLACE "(..).(..).(....).*" "\\1/\\2/\\3" ${RESULT} ${${RESULT}})
+    else()
+        message(SEND_ERROR "FindWDK signing module supports only Windows systems")
+        set(RESULT "00/00/0000")
+    endif()
+endmacro (TODAY)
+
+set(COMPILATION_DATE "")
+TODAY(COMPILATION_DATE)
+message(STATUS "Compilation date: ${COMPILATION_DATE}")
 
 function(wdk_add_driver _target)
     cmake_parse_arguments(WDK "" "KTL_ENTRY_POINT;KMDF;WINVER" "" ${ARGN})
@@ -182,4 +205,39 @@ function(wdk_add_library _target)
     if(DEFINED WDK_KMDF)
         target_include_directories(${_target} SYSTEM PRIVATE "${WDK_ROOT}/Include/wdf/kmdf/${WDK_KMDF}")
     endif()
+endfunction()
+
+function(wdk_make_certificate _target _certificate_name)
+    cmake_parse_arguments(WDK "" "CERTIFICATE_PATH;COMPANY" "" ${ARGN})
+
+    if(NOT DEFINED WDK_CERTIFICATE_PATH)
+        set(WDK_CERTIFICATE_PATH ${CMAKE_CURRENT_BINARY_DIR})
+    endif()
+    if(NOT DEFINED WDK_COMPANY)
+        set(WDK_COMPANY "NoCompany")
+    endif()
+    add_custom_command(OUTPUT ${_certificate_name}.pfx
+	    COMMAND "${CMAKE_COMMAND}" -E remove ${_certificate_name}.pvk ${_certificate_name}.cer ${_certificate_name}.pfx ${_certificate_name}.spc
+	    COMMAND "${MAKECERT}" -b ${COMPILATION_DATE} -r -n \"CN=${WDK_COMPANY}\" -sv ${_certificate_name}.pvk ${_certificate_name}.cer
+	    COMMAND "${CERTMGR}" -add ${_certificate_name}.cer -s -r currentUser ROOT
+	    COMMAND "${CERTMGR}" -add ${_certificate_name}.cer -s -r currentUser TRUSTEDPUBLISHER
+	    COMMAND "${CERT2SPC}" ${_certificate_name}.cer ${_certificate_name}.spc
+	    COMMAND "${PVK2PFX}" -pvk ${_certificate_name}.pvk -spc ${_certificate_name}.spc -pfx ${_certificate_name}.pfx
+	    WORKING_DIRECTORY "${WDK_CERTIFICATE_PATH}"
+	    COMMENT "Generating SSL certificates to sign the drivers and executable ..."
+   )
+    add_custom_target(${_certificate_name}
+	    DEPENDS ${_certificate_name}.pfx)
+    add_dependencies(${_target} ${_certificate_name})
+endfunction()
+
+function(wdk_sign_driver _target _certificate_name)
+    cmake_parse_arguments(WDK "" "CERTIFICATE_PATH" "" ${ARGN})
+    if(NOT DEFINED WDK_CERTIFICATE_PATH)
+       set(WDK_CERTIFICATE_PATH ${CMAKE_CURRENT_BINARY_DIR})
+    endif()
+    add_custom_command(TARGET ${_target}
+    COMMAND "${SIGNTOOL}" sign /v /f "${WDK_CERTIFICATE_PATH}/${_certificate_name}.pfx" /t http://timestamp.verisign.com/scripts/timstamp.dll $<TARGET_FILE:${_target}>
+        COMMENT "Signing $<TARGET_FILE:${_target} ..."
+    )
 endfunction()
