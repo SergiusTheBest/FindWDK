@@ -70,12 +70,11 @@ set(WDK_COMPILE_FLAGS
     "/GF"  # enable string pooling
     "/GR-" # disable RTTI
     "/Gz" # __stdcall by default
-    "/kernel"  # create kernel mode binary
     "/FIwarning.h" # disable warnings in WDK headers
     "/FI${WDK_ADDITIONAL_FLAGS_FILE}" # include file to disable RTC
-    "/W4"   # last warning level
+    "/W4"   # last warning level 
     "/WX"   # warnings as errors
-    )
+)
 
 set(WDK_COMPILE_DEFINITIONS "WINNT=1")
 set(WDK_COMPILE_DEFINITIONS_DEBUG "MSC_NOOPT;DEPRECATE_DDK_FUNCTIONS=1;DBG=1")
@@ -126,10 +125,24 @@ foreach(LIBRARY IN LISTS WDK_LIBRARIES)
 endforeach(LIBRARY)
 unset(WDK_LIBRARIES)
 
+set(EXTENDED_CPP_FEATURES_LIST "/EHsc")
+
+macro (EXTENDED_CPP_FEATURES_ON TARGET_NAME)
+    list(REMOVE_ITEM WDK_COMPILE_FLAGS "/kernel")
+    list(APPEND WDK_COMPILE_FLAGS ${EXTENDED_CPP_FEATURES_LIST})
+    message(STATUS "Extended C++ features (exceptions, etc) are enabled for ${TARGET_NAME}")
+endmacro (EXTENDED_CPP_FEATURES_ON)
+
+macro (EXTENDED_CPP_FEATURES_OFF TARGET_NAME)
+    list(REMOVE_ITEM WDK_COMPILE_FLAGS ${EXTENDED_CPP_FEATURES_LIST})
+    list(APPEND WDK_COMPILE_FLAGS "/kernel")
+    message(STATUS "Extended C++ features (exceptions, etc) are disabled for ${TARGET_NAME}")
+endmacro (EXTENDED_CPP_FEATURES_OFF)
+
 macro (TODAY RESULT)
     if(WIN32)
         execute_process(COMMAND "cmd" " /C date /T" OUTPUT_VARIABLE ${RESULT})
-        string(REGEX REPLACE "(..).(..).(....).*" "\\1/\\2/\\3" ${RESULT} ${${RESULT}})
+        string(REGEX REPLACE "(..).(..).(....).*" "\\2/\\1/\\3" ${RESULT} ${${RESULT}})
     else()
         message(SEND_ERROR "FindWDK signing module supports only Windows systems")
         set(RESULT "00/00/0000")
@@ -141,7 +154,13 @@ TODAY(COMPILATION_DATE)
 message(STATUS "Compilation date: ${COMPILATION_DATE}")
 
 function(wdk_add_driver _target)
-    cmake_parse_arguments(WDK "" "CUSTOM_ENTRY_POINT;KMDF;WINVER" "" ${ARGN})
+    cmake_parse_arguments(WDK "EXTENDED_CPP_FEATURES" "CUSTOM_ENTRY_POINT;KMDF;WINVER" "" ${ARGN})
+
+    if(WDK_EXTENDED_CPP_FEATURES)
+        EXTENDED_CPP_FEATURES_ON(${_target})
+    else()
+        EXTENDED_CPP_FEATURES_OFF(${_target})
+    endif()
 
     add_executable(${_target} ${WDK_UNPARSED_ARGUMENTS})
 
@@ -187,7 +206,13 @@ function(wdk_add_driver _target)
 endfunction()
 
 function(wdk_add_library _target)
-    cmake_parse_arguments(WDK "" "KMDF;WINVER" "" ${ARGN})
+    cmake_parse_arguments(WDK "EXTENDED_CPP_FEATURES" "KMDF;WINVER" "" ${ARGN})
+    
+    if(WDK_EXTENDED_CPP_FEATURES)
+        EXTENDED_CPP_FEATURES_ON(${_target})
+    else()
+        EXTENDED_CPP_FEATURES_OFF(${_target})
+    endif()
 
     add_library(${_target} ${WDK_UNPARSED_ARGUMENTS})
 
@@ -216,6 +241,7 @@ function(wdk_make_certificate _target _certificate_name)
     if(NOT DEFINED WDK_COMPANY)
         set(WDK_COMPANY "NoCompany")
     endif()
+
     add_custom_command(OUTPUT ${_certificate_name}.pfx
 	    COMMAND "${CMAKE_COMMAND}" -E remove ${_certificate_name}.pvk ${_certificate_name}.cer ${_certificate_name}.pfx ${_certificate_name}.spc
 	    COMMAND "${MAKECERT}" -b ${COMPILATION_DATE} -r -n \"CN=${WDK_COMPANY}\" -sv ${_certificate_name}.pvk ${_certificate_name}.cer
@@ -232,12 +258,17 @@ function(wdk_make_certificate _target _certificate_name)
 endfunction()
 
 function(wdk_sign_driver _target _certificate_name)
-    cmake_parse_arguments(WDK "" "CERTIFICATE_PATH" "" ${ARGN})
+    cmake_parse_arguments(WDK "" "CERTIFICATE_PATH;TIMESTAMP_SERVER" "" ${ARGN})
+
     if(NOT DEFINED WDK_CERTIFICATE_PATH)
        set(WDK_CERTIFICATE_PATH ${CMAKE_CURRENT_BINARY_DIR})
     endif()
+    if(NOT DEFINED WDK_TIMESTAMP_SERVER)
+        set(WDK_TIMESTAMP_SERVER http://timestamp.verisign.com/scripts/timstamp.dll)
+    endif()
+
     add_custom_command(TARGET ${_target}
-    COMMAND "${SIGNTOOL}" sign /v /f "${WDK_CERTIFICATE_PATH}/${_certificate_name}.pfx" /t http://timestamp.verisign.com/scripts/timstamp.dll $<TARGET_FILE:${_target}>
+    COMMAND "${SIGNTOOL}" sign /v /f "${WDK_CERTIFICATE_PATH}/${_certificate_name}.pfx" /t ${WDK_TIMESTAMP_SERVER} $<TARGET_FILE:${_target}>
         COMMENT "Signing $<TARGET_FILE:${_target} ..."
     )
 endfunction()
