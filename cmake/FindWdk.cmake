@@ -164,7 +164,7 @@ function(wdk_add_library _target)
 
     set_target_properties(${_target} PROPERTIES COMPILE_OPTIONS "${WDK_COMPILE_FLAGS}")
     set_target_properties(${_target} PROPERTIES COMPILE_DEFINITIONS 
-        "${WDK_COMPILE_DEFINITIONS};$<$<CONFIG:Debug>:${WDK_COMPILE_DEFINITIONS_DEBUG};_WIN32_WINNT=${WDK_WINVER}>"
+        "${WDK_COMPILE_DEFINITIONS};$<$<CONFIG:Debug>:${WDK_COMPILE_DEFINITIONS_DEBUG};>_WIN32_WINNT=${WDK_WINVER}"
         )
 
     target_include_directories(${_target} SYSTEM PRIVATE
