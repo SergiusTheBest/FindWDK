@@ -30,7 +30,6 @@
 #       )
 #   target_link_libraries(KmdfCppDriver KmdfCppLib)
 #
-
 if(DEFINED ENV{WDKContentRoot})
     file(GLOB WDK_NTDDK_FILES
         "$ENV{WDKContentRoot}/Include/*/km/ntddk.h"
@@ -71,10 +70,11 @@ set(WDK_COMPILE_FLAGS
     "/GF"  # enable string pooling
     "/GR-" # disable RTTI
     "/Gz" # __stdcall by default
-    "/kernel"  # create kernel mode binary
     "/FIwarning.h" # disable warnings in WDK headers
     "/FI${WDK_ADDITIONAL_FLAGS_FILE}" # include file to disable RTC
-    )
+    "/W4"   # last warning level 
+    "/WX"   # warnings as errors
+)
 
 set(WDK_COMPILE_DEFINITIONS "WINNT=1")
 set(WDK_COMPILE_DEFINITIONS_DEBUG "MSC_NOOPT;DEPRECATE_DDK_FUNCTIONS=1;DBG=1")
@@ -89,6 +89,15 @@ else()
     message(FATAL_ERROR "Unsupported architecture")
 endif()
 
+set(WINSDK ${WDK_ROOT}/bin/${WDK_VERSION}/${WDK_PLATFORM})
+set(OPENSSL "openssl.exe")
+set(MAKECERT "${WINSDK}/makecert.exe")
+set(CERTUTIL "certutil.exe")
+set(CERTMGR "certmgr.exe")
+set(CERT2SPC "cert2spc.exe")
+set(PVK2PFX "${WINSDK}/pvk2pfx.exe")
+set(SIGNTOOL "${WINSDK}/signtool.exe")
+
 string(CONCAT WDK_LINK_FLAGS
     "/MANIFEST:NO " #
     "/DRIVER " #
@@ -100,20 +109,58 @@ string(CONCAT WDK_LINK_FLAGS
     "/NODEFAULTLIB " # do not link default CRT
     "/SECTION:INIT,d " #
     "/VERSION:10.0 " #
-    )
+)
 
 # Generate imported targets for WDK lib files
 file(GLOB WDK_LIBRARIES "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/*.lib")    
 foreach(LIBRARY IN LISTS WDK_LIBRARIES)
     get_filename_component(LIBRARY_NAME ${LIBRARY} NAME_WE)
     string(TOUPPER ${LIBRARY_NAME} LIBRARY_NAME)
-    add_library(WDK::${LIBRARY_NAME} INTERFACE IMPORTED)
-    set_property(TARGET WDK::${LIBRARY_NAME} PROPERTY INTERFACE_LINK_LIBRARIES  ${LIBRARY})
+
+# Protect against multiple inclusion, which would fail when already imported targets are added once more.
+    if(NOT TARGET WDK::${LIBRARY_NAME})                     
+        add_library(WDK::${LIBRARY_NAME} INTERFACE IMPORTED)
+        set_property(TARGET WDK::${LIBRARY_NAME} PROPERTY INTERFACE_LINK_LIBRARIES  ${LIBRARY})
+    endif()
 endforeach(LIBRARY)
 unset(WDK_LIBRARIES)
 
+set(EXTENDED_CPP_FEATURES_LIST "/EHsc")
+
+macro (EXTENDED_CPP_FEATURES_ON TARGET_NAME)
+    list(REMOVE_ITEM WDK_COMPILE_FLAGS "/kernel")
+    list(APPEND WDK_COMPILE_FLAGS ${EXTENDED_CPP_FEATURES_LIST})
+    message(STATUS "Extended C++ features (exceptions, etc) are enabled for ${TARGET_NAME}")
+endmacro (EXTENDED_CPP_FEATURES_ON)
+
+macro (EXTENDED_CPP_FEATURES_OFF TARGET_NAME)
+    list(REMOVE_ITEM WDK_COMPILE_FLAGS ${EXTENDED_CPP_FEATURES_LIST})
+    list(APPEND WDK_COMPILE_FLAGS "/kernel")
+    message(STATUS "Extended C++ features (exceptions, etc) are disabled for ${TARGET_NAME}")
+endmacro (EXTENDED_CPP_FEATURES_OFF)
+
+macro (TODAY RESULT)
+    if(WIN32)
+        execute_process(COMMAND "cmd" " /C date /T" OUTPUT_VARIABLE ${RESULT})
+        string(REGEX REPLACE "(..).(..).(....).*" "\\2/\\1/\\3" ${RESULT} ${${RESULT}})
+    else()
+        message(SEND_ERROR "FindWDK signing module supports only Windows systems")
+        set(RESULT "00/00/0000")
+    endif()
+endmacro (TODAY)
+
+set(COMPILATION_DATE "")
+TODAY(COMPILATION_DATE)
+message(STATUS "Compilation date: ${COMPILATION_DATE}")
+
 function(wdk_add_driver _target)
-    cmake_parse_arguments(WDK "" "KMDF;WINVER" "" ${ARGN})
+    cmake_parse_arguments(WDK "EXTENDED_CPP_FEATURES" "CUSTOM_ENTRY_POINT;KMDF;WINVER" "" ${ARGN})
+
+    if(WDK_EXTENDED_CPP_FEATURES)
+        EXTENDED_CPP_FEATURES_ON(${_target})
+    else()
+        EXTENDED_CPP_FEATURES_OFF(${_target})
+    endif()
 
     add_executable(${_target} ${WDK_UNPARSED_ARGUMENTS})
 
@@ -136,13 +183,14 @@ function(wdk_add_driver _target)
         target_link_libraries(${_target} WDK::MEMCMP)
     endif()
 
-    if(DEFINED WDK_KMDF)
+    if(DEFINED WDK_CUSTOM_ENTRY_POINT)
+        set_property(TARGET ${_target} APPEND_STRING PROPERTY LINK_FLAGS "/ENTRY:${WDK_CUSTOM_ENTRY_POINT}")
+    elseif(DEFINED WDK_KMDF)
         target_include_directories(${_target} SYSTEM PRIVATE "${WDK_ROOT}/Include/wdf/kmdf/${WDK_KMDF}")
         target_link_libraries(${_target}
             "${WDK_ROOT}/Lib/wdf/kmdf/${WDK_PLATFORM}/${WDK_KMDF}/WdfDriverEntry.lib"
             "${WDK_ROOT}/Lib/wdf/kmdf/${WDK_PLATFORM}/${WDK_KMDF}/WdfLdr.lib"
             )
-
         if(CMAKE_SIZEOF_VOID_P EQUAL 4)
             set_property(TARGET ${_target} APPEND_STRING PROPERTY LINK_FLAGS "/ENTRY:FxDriverEntry@8")
         elseif(CMAKE_SIZEOF_VOID_P  EQUAL 8)
@@ -158,7 +206,13 @@ function(wdk_add_driver _target)
 endfunction()
 
 function(wdk_add_library _target)
-    cmake_parse_arguments(WDK "" "KMDF;WINVER" "" ${ARGN})
+    cmake_parse_arguments(WDK "EXTENDED_CPP_FEATURES" "KMDF;WINVER" "" ${ARGN})
+    
+    if(WDK_EXTENDED_CPP_FEATURES)
+        EXTENDED_CPP_FEATURES_ON(${_target})
+    else()
+        EXTENDED_CPP_FEATURES_OFF(${_target})
+    endif()
 
     add_library(${_target} ${WDK_UNPARSED_ARGUMENTS})
 
@@ -176,4 +230,45 @@ function(wdk_add_library _target)
     if(DEFINED WDK_KMDF)
         target_include_directories(${_target} SYSTEM PRIVATE "${WDK_ROOT}/Include/wdf/kmdf/${WDK_KMDF}")
     endif()
+endfunction()
+
+function(wdk_make_certificate _target _certificate_name)
+    cmake_parse_arguments(WDK "" "CERTIFICATE_PATH;COMPANY" "" ${ARGN})
+
+    if(NOT DEFINED WDK_CERTIFICATE_PATH)
+        set(WDK_CERTIFICATE_PATH ${CMAKE_CURRENT_BINARY_DIR})
+    endif()
+    if(NOT DEFINED WDK_COMPANY)
+        set(WDK_COMPANY "NoCompany")
+    endif()
+
+    add_custom_command(OUTPUT ${_certificate_name}.pfx
+	    COMMAND "${CMAKE_COMMAND}" -E remove ${_certificate_name}.pvk ${_certificate_name}.cer ${_certificate_name}.pfx ${_certificate_name}.spc
+	    COMMAND "${MAKECERT}" -b ${COMPILATION_DATE} -r -n \"CN=${WDK_COMPANY}\" -sv ${_certificate_name}.pvk ${_certificate_name}.cer
+	    COMMAND "${CERTMGR}" -add ${_certificate_name}.cer -s -r currentUser ROOT
+	    COMMAND "${CERTMGR}" -add ${_certificate_name}.cer -s -r currentUser TRUSTEDPUBLISHER
+	    COMMAND "${CERT2SPC}" ${_certificate_name}.cer ${_certificate_name}.spc
+	    COMMAND "${PVK2PFX}" -pvk ${_certificate_name}.pvk -spc ${_certificate_name}.spc -pfx ${_certificate_name}.pfx
+	    WORKING_DIRECTORY "${WDK_CERTIFICATE_PATH}"
+	    COMMENT "Generating SSL certificates to sign the drivers and executable ..."
+   )
+    add_custom_target(${_certificate_name}
+	    DEPENDS ${_certificate_name}.pfx)
+    add_dependencies(${_target} ${_certificate_name})
+endfunction()
+
+function(wdk_sign_driver _target _certificate_name)
+    cmake_parse_arguments(WDK "" "CERTIFICATE_PATH;TIMESTAMP_SERVER" "" ${ARGN})
+
+    if(NOT DEFINED WDK_CERTIFICATE_PATH)
+       set(WDK_CERTIFICATE_PATH ${CMAKE_CURRENT_BINARY_DIR})
+    endif()
+    if(NOT DEFINED WDK_TIMESTAMP_SERVER)
+        set(WDK_TIMESTAMP_SERVER http://timestamp.verisign.com/scripts/timstamp.dll)
+    endif()
+
+    add_custom_command(TARGET ${_target}
+    COMMAND "${SIGNTOOL}" sign /v /f "${WDK_CERTIFICATE_PATH}/${_certificate_name}.pfx" /t ${WDK_TIMESTAMP_SERVER} $<TARGET_FILE:${_target}>
+        COMMENT "Signing $<TARGET_FILE:${_target} ..."
+    )
 endfunction()
