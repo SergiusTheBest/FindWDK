@@ -31,6 +31,7 @@ FindWDK will search for the installed Windows Development Kit (WDK) and expose c
 - `WDK_ROOT` -- where WDK is installed
 - `WDK_VERSION` -- the version of the selected WDK
 - `WDK_WINVER` -- the WINVER used for kernel drivers and libraries (default value is `0x0601` and can be changed per target or globally)
+- `WDK_NTDDI_VERSION` -- the NTDDI_VERSION used for kernel drivers and libraries, if not set, the value will be automatically calculated by WINVER
 
 ## Kernel driver
 The following command adds a kernel driver target called `<name>` to be built from the source files listed in the command invocation:
@@ -40,6 +41,7 @@ wdk_add_driver(<name>
     [EXCLUDE_FROM_ALL]
     [KMDF <kmdf_version>]
     [WINVER <winver_version>]
+    [NTDDI_VERSION <ntddi_version>]
     source1 [source2 ...]
     )
 ```
@@ -48,6 +50,7 @@ Options:
 - `EXCLUDE_FROM_ALL` -- exclude from the default build target
 - `KMDF <kmdf_version>` -- use KMDF and set KMDF version
 - `WINVER <winver_version>` -- use specific WINVER version
+- `NTDDI_VERSION <ntddi_version>` -- use specific NTDDI_VERSION
 
 Example:
 
@@ -67,6 +70,7 @@ wdk_add_library(<name> [STATIC | SHARED]
     [EXCLUDE_FROM_ALL]
     [KMDF <kmdf_version>]
     [WINVER <winver_version>]
+    [NTDDI_VERSION <ntddi_version>]
     source1 [source2 ...]
     )
 ```
@@ -75,6 +79,7 @@ Options:
 - `EXCLUDE_FROM_ALL` -- exclude from the default build target
 - `KMDF <kmdf_version>` -- use KMDF and set KMDF version
 - `WINVER <winver_version>` -- use specific WINVER version
+- `NTDDI_VERSION <ntddi_version>` -- use specific NTDDI_VERSION
 - `STATIC or SHARED` -- specify the type of library to be created
 
 Example:

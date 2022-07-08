@@ -5,22 +5,25 @@
 # FindWDK
 # ----------
 #
-# This module searches for the installed Windows Development Kit (WDK) and 
+# This module searches for the installed Windows Development Kit (WDK) and
 # exposes commands for creating kernel drivers and kernel libraries.
 #
 # Output variables:
 # - `WDK_FOUND` -- if false, do not try to use WDK
 # - `WDK_ROOT` -- where WDK is installed
 # - `WDK_VERSION` -- the version of the selected WDK
-# - `WDK_WINVER` -- the WINVER used for kernel drivers and libraries 
+# - `WDK_WINVER` -- the WINVER used for kernel drivers and libraries
 #        (default value is `0x0601` and can be changed per target or globally)
+# - `WDK_NTDDI_VERSION` -- the NTDDI_VERSION used for kernel drivers and libraries,
+#                          if not set, the value will be automatically calculated by WINVER
+#        (default value is left blank and can be changed per target or globally)
 #
 # Example usage:
 #
 #   find_package(WDK REQUIRED)
 #
 #   wdk_add_library(KmdfCppLib STATIC KMDF 1.15
-#       KmdfCppLib.h 
+#       KmdfCppLib.h
 #       KmdfCppLib.cpp
 #       )
 #   target_include_directories(KmdfCppLib INTERFACE .)
@@ -62,6 +65,7 @@ message(STATUS "WDK_ROOT: " ${WDK_ROOT})
 message(STATUS "WDK_VERSION: " ${WDK_VERSION})
 
 set(WDK_WINVER "0x0601" CACHE STRING "Default WINVER for WDK targets")
+set(WDK_NTDDI_VERSION "" CACHE STRING "Specified NTDDI_VERSION for WDK targets if needed")
 
 set(WDK_ADDITIONAL_FLAGS_FILE "${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/wdkflags.h")
 file(WRITE ${WDK_ADDITIONAL_FLAGS_FILE} "#pragma runtime_checks(\"suc\", off)")
@@ -103,7 +107,7 @@ string(CONCAT WDK_LINK_FLAGS
     )
 
 # Generate imported targets for WDK lib files
-file(GLOB WDK_LIBRARIES "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/*.lib")    
+file(GLOB WDK_LIBRARIES "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/*.lib")
 foreach(LIBRARY IN LISTS WDK_LIBRARIES)
     get_filename_component(LIBRARY_NAME ${LIBRARY} NAME_WE)
     string(TOUPPER ${LIBRARY_NAME} LIBRARY_NAME)
@@ -113,7 +117,7 @@ endforeach(LIBRARY)
 unset(WDK_LIBRARIES)
 
 function(wdk_add_driver _target)
-    cmake_parse_arguments(WDK "" "KMDF;WINVER" "" ${ARGN})
+    cmake_parse_arguments(WDK "" "KMDF;WINVER;NTDDI_VERSION" "" ${ARGN})
 
     add_executable(${_target} ${WDK_UNPARSED_ARGUMENTS})
 
@@ -123,6 +127,9 @@ function(wdk_add_driver _target)
         "${WDK_COMPILE_DEFINITIONS};$<$<CONFIG:Debug>:${WDK_COMPILE_DEFINITIONS_DEBUG}>;_WIN32_WINNT=${WDK_WINVER}"
         )
     set_target_properties(${_target} PROPERTIES LINK_FLAGS "${WDK_LINK_FLAGS}")
+    if(WDK_NTDDI_VERSION)
+        target_compile_definitions(${_target} PRIVATE NTDDI_VERSION=${WDK_NTDDI_VERSION})
+    endif()
 
     target_include_directories(${_target} SYSTEM PRIVATE
         "${WDK_ROOT}/Include/${WDK_VERSION}/shared"
@@ -158,14 +165,17 @@ function(wdk_add_driver _target)
 endfunction()
 
 function(wdk_add_library _target)
-    cmake_parse_arguments(WDK "" "KMDF;WINVER" "" ${ARGN})
+    cmake_parse_arguments(WDK "" "KMDF;WINVER;NTDDI_VERSION" "" ${ARGN})
 
     add_library(${_target} ${WDK_UNPARSED_ARGUMENTS})
 
     set_target_properties(${_target} PROPERTIES COMPILE_OPTIONS "${WDK_COMPILE_FLAGS}")
-    set_target_properties(${_target} PROPERTIES COMPILE_DEFINITIONS 
+    set_target_properties(${_target} PROPERTIES COMPILE_DEFINITIONS
         "${WDK_COMPILE_DEFINITIONS};$<$<CONFIG:Debug>:${WDK_COMPILE_DEFINITIONS_DEBUG};>_WIN32_WINNT=${WDK_WINVER}"
         )
+    if(WDK_NTDDI_VERSION)
+        target_compile_definitions(${_target} PRIVATE NTDDI_VERSION=${WDK_NTDDI_VERSION})
+    endif()
 
     target_include_directories(${_target} SYSTEM PRIVATE
         "${WDK_ROOT}/Include/${WDK_VERSION}/shared"
