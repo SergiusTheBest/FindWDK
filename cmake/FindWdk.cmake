@@ -14,6 +14,9 @@
 # - `WDK_VERSION` -- the version of the selected WDK
 # - `WDK_WINVER` -- the WINVER used for kernel drivers and libraries
 #        (default value is `0x0601` and can be changed per target or globally)
+# - `WDK_NTDDI_VERSION` -- the NTDDI_VERSION used for kernel drivers and libraries,
+#                          if not set, the value will be automatically calculated by WINVER
+#        (default value is left blank and can be changed per target or globally)
 #
 # Example usage:
 #
@@ -162,7 +165,7 @@ function(wdk_add_driver _target)
 endfunction()
 
 function(wdk_add_library _target)
-    cmake_parse_arguments(WDK "" "KMDF;WINVER" "" ${ARGN})
+    cmake_parse_arguments(WDK "" "KMDF;WINVER;NTDDI_VERSION" "" ${ARGN})
 
     add_library(${_target} ${WDK_UNPARSED_ARGUMENTS})
 
@@ -170,6 +173,9 @@ function(wdk_add_library _target)
     set_target_properties(${_target} PROPERTIES COMPILE_DEFINITIONS
         "${WDK_COMPILE_DEFINITIONS};$<$<CONFIG:Debug>:${WDK_COMPILE_DEFINITIONS_DEBUG};>_WIN32_WINNT=${WDK_WINVER}"
         )
+    if(WDK_NTDDI_VERSION)
+        target_compile_definitions(${_target} PRIVATE NTDDI_VERSION=${WDK_NTDDI_VERSION})
+    endif()
 
     target_include_directories(${_target} SYSTEM PRIVATE
         "${WDK_ROOT}/Include/${WDK_VERSION}/shared"
