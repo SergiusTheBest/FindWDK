@@ -40,7 +40,8 @@ if(DEFINED ENV{WDKContentRoot})
     )
 else()
     file(GLOB WDK_NTDDK_FILES
-        "C:/Program Files*/Windows Kits/10/Include/*/km/ntddk.h"
+        "C:/Program Files*/Windows Kits/*/Include/*/km/ntddk.h"
+        "C:/Program Files*/Windows Kits/*/Include/km/ntddk.h"
     )
 endif()
 
@@ -59,10 +60,21 @@ get_filename_component(WDK_ROOT ${WDK_LATEST_NTDDK_FILE} DIRECTORY)
 get_filename_component(WDK_ROOT ${WDK_ROOT} DIRECTORY)
 get_filename_component(WDK_VERSION ${WDK_ROOT} NAME)
 get_filename_component(WDK_ROOT ${WDK_ROOT} DIRECTORY)
-get_filename_component(WDK_ROOT ${WDK_ROOT} DIRECTORY)
+if (NOT WDK_ROOT MATCHES ".*/[0-9][0-9.]*$")
+    get_filename_component(WDK_ROOT ${WDK_ROOT} DIRECTORY)
+    set(WDK_LIB_VERSION "${WDK_VERSION}")
+else()
+    set(WDK_VERSION "")
+    foreach(VERSION win8 win7 winv6.3)
+        if (EXISTS "${WDK_ROOT}/Lib/${VERSION}/")
+            set(WDK_LIB_VERSION "${VERSION}")
+            break()
+        endif()
+    endforeach()
+endif()
 
 message(STATUS "WDK_ROOT: " ${WDK_ROOT})
-message(STATUS "WDK_VERSION: " ${WDK_VERSION})
+message(STATUS "WDK_VERSION: " ${WDK_LIB_VERSION})
 
 set(WDK_WINVER "0x0601" CACHE STRING "Default WINVER for WDK targets")
 set(WDK_NTDDI_VERSION "" CACHE STRING "Specified NTDDI_VERSION for WDK targets if needed")
@@ -107,7 +119,7 @@ string(CONCAT WDK_LINK_FLAGS
     )
 
 # Generate imported targets for WDK lib files
-file(GLOB WDK_LIBRARIES "${WDK_ROOT}/Lib/${WDK_VERSION}/km/${WDK_PLATFORM}/*.lib")
+file(GLOB WDK_LIBRARIES "${WDK_ROOT}/Lib/${WDK_LIB_VERSION}/km/${WDK_PLATFORM}/*.lib")
 foreach(LIBRARY IN LISTS WDK_LIBRARIES)
     get_filename_component(LIBRARY_NAME ${LIBRARY} NAME_WE)
     string(TOUPPER ${LIBRARY_NAME} LIBRARY_NAME)
