@@ -63,18 +63,20 @@ get_filename_component(WDK_ROOT ${WDK_ROOT} DIRECTORY)
 if (NOT WDK_ROOT MATCHES ".*/[0-9][0-9.]*$")
     get_filename_component(WDK_ROOT ${WDK_ROOT} DIRECTORY)
     set(WDK_LIB_VERSION "${WDK_VERSION}")
+    set(WDK_INC_VERSION "${WDK_VERSION}")
 else()
-    set(WDK_VERSION "")
-    foreach(VERSION win8 win7 winv6.3)
+    set(WDK_INC_VERSION "")
+    foreach(VERSION winv6.3 win8 win7)
         if (EXISTS "${WDK_ROOT}/Lib/${VERSION}/")
             set(WDK_LIB_VERSION "${VERSION}")
             break()
         endif()
     endforeach()
+    set(WDK_VERSION "${WDK_LIB_VERSION}")
 endif()
 
 message(STATUS "WDK_ROOT: " ${WDK_ROOT})
-message(STATUS "WDK_VERSION: " ${WDK_LIB_VERSION})
+message(STATUS "WDK_VERSION: " ${WDK_VERSION})
 
 set(WDK_WINVER "0x0601" CACHE STRING "Default WINVER for WDK targets")
 set(WDK_NTDDI_VERSION "" CACHE STRING "Specified NTDDI_VERSION for WDK targets if needed")
@@ -144,9 +146,9 @@ function(wdk_add_driver _target)
     endif()
 
     target_include_directories(${_target} SYSTEM PRIVATE
-        "${WDK_ROOT}/Include/${WDK_VERSION}/shared"
-        "${WDK_ROOT}/Include/${WDK_VERSION}/km"
-        "${WDK_ROOT}/Include/${WDK_VERSION}/km/crt"
+        "${WDK_ROOT}/Include/${WDK_INC_VERSION}/shared"
+        "${WDK_ROOT}/Include/${WDK_INC_VERSION}/km"
+        "${WDK_ROOT}/Include/${WDK_INC_VERSION}/km/crt"
         )
 
     target_link_libraries(${_target} WDK::NTOSKRNL WDK::HAL WDK::BUFFEROVERFLOWK WDK::WMILIB)
@@ -190,9 +192,9 @@ function(wdk_add_library _target)
     endif()
 
     target_include_directories(${_target} SYSTEM PRIVATE
-        "${WDK_ROOT}/Include/${WDK_VERSION}/shared"
-        "${WDK_ROOT}/Include/${WDK_VERSION}/km"
-        "${WDK_ROOT}/Include/${WDK_VERSION}/km/crt"
+        "${WDK_ROOT}/Include/${WDK_INC_VERSION}/shared"
+        "${WDK_ROOT}/Include/${WDK_INC_VERSION}/km"
+        "${WDK_ROOT}/Include/${WDK_INC_VERSION}/km/crt"
         )
 
     if(DEFINED WDK_KMDF)
