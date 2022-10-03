@@ -14,9 +14,9 @@ CMake module for building drivers with Windows Development Kit (WDK) [![Build st
 FindWDK makes it possible to build kernel drivers and kernel libraries with Windows Development Kit (WDK) and CMake.
 
 Requirements:
-- WDK10
+- WDK 8.0 and higher
 - Visual Studio 2015 and higher
-- CMake 3.0 and higher
+- CMake 3.18 and higher
 
 # Usage
 Add FindWDK to the module search path and call `find_package`:
@@ -26,12 +26,14 @@ list(APPEND CMAKE_MODULE_PATH "<path_to_FindWDK>")
 find_package(WDK REQUIRED)
 ```
 
-FindWDK will search for the installed Windows Development Kit (WDK) and expose commands for creating kernel drivers and kernel libraries. Also the following variables will be defined:
+FindWDK will search for the latest installed Windows Development Kit (WDK) and expose commands for creating kernel drivers and kernel libraries. Also the following variables will be defined:
 - `WDK_FOUND` -- if false, do not try to use WDK
 - `WDK_ROOT` -- where WDK is installed
 - `WDK_VERSION` -- the version of the selected WDK
 - `WDK_WINVER` -- the WINVER used for kernel drivers and libraries (default value is `0x0601` and can be changed per target or globally)
 - `WDK_NTDDI_VERSION` -- the NTDDI_VERSION used for kernel drivers and libraries, if not set, the value will be automatically calculated by WINVER
+
+`WDKContentRoot` environment variable overrides the default WDK search path.
 
 ## Kernel driver
 The following command adds a kernel driver target called `<name>` to be built from the source files listed in the command invocation:
@@ -107,6 +109,8 @@ Take a look at the [samples](samples) folder to see how WMD and KMDF drivers and
 FindWDK is licensed under the OSI-approved 3-clause BSD license. You can freely use it in your commercial or opensource software.
 
 # Version history
+
+## Version 1.0.2 (TBD)
 
 ## Version 1.0.1 (13 Mar 2018)
 - New: Add ability to link to WDK libraries
