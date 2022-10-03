@@ -34,18 +34,22 @@
 #   target_link_libraries(KmdfCppDriver KmdfCppLib)
 #
 
+cmake_minimum_required(VERSION 3.18)
+
 if(DEFINED ENV{WDKContentRoot})
     file(GLOB WDK_NTDDK_FILES
-        "$ENV{WDKContentRoot}/Include/*/km/ntddk.h"
+        "$ENV{WDKContentRoot}/Include/*/km/ntddk.h" # WDK 10
+        "$ENV{WDKContentRoot}/Include/km/ntddk.h" # WDK 8.0, 8.1
     )
 else()
     file(GLOB WDK_NTDDK_FILES
-        "C:/Program Files*/Windows Kits/*/Include/*/km/ntddk.h"
-        "C:/Program Files*/Windows Kits/*/Include/km/ntddk.h"
+        "C:/Program Files*/Windows Kits/*/Include/*/km/ntddk.h" # WDK 10
+        "C:/Program Files*/Windows Kits/*/Include/km/ntddk.h" # WDK 8.0, 8.1
     )
 endif()
 
 if(WDK_NTDDK_FILES)
+    list(SORT WDK_NTDDK_FILES COMPARE NATURAL) # sort to use the latest available WDK
     list(GET WDK_NTDDK_FILES -1 WDK_LATEST_NTDDK_FILE)
 endif()
 
@@ -60,11 +64,11 @@ get_filename_component(WDK_ROOT ${WDK_LATEST_NTDDK_FILE} DIRECTORY)
 get_filename_component(WDK_ROOT ${WDK_ROOT} DIRECTORY)
 get_filename_component(WDK_VERSION ${WDK_ROOT} NAME)
 get_filename_component(WDK_ROOT ${WDK_ROOT} DIRECTORY)
-if (NOT WDK_ROOT MATCHES ".*/[0-9][0-9.]*$")
-    get_filename_component(WDK_ROOT ${WDK_ROOT} DIRECTORY)
+if (NOT WDK_ROOT MATCHES ".*/[0-9][0-9.]*$") # WDK 10 has a deeper nesting level
+    get_filename_component(WDK_ROOT ${WDK_ROOT} DIRECTORY) # go up once more
     set(WDK_LIB_VERSION "${WDK_VERSION}")
     set(WDK_INC_VERSION "${WDK_VERSION}")
-else()
+else() # WDK 8.0, 8.1
     set(WDK_INC_VERSION "")
     foreach(VERSION winv6.3 win8 win7)
         if (EXISTS "${WDK_ROOT}/Lib/${VERSION}/")
