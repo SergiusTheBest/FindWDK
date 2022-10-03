@@ -16,7 +16,7 @@ FindWDK makes it possible to build kernel drivers and kernel libraries with Wind
 Requirements:
 - WDK 8.0 and higher
 - Visual Studio 2015 and higher
-- CMake 3.18 and higher
+- CMake 3.0 and higher
 
 # Usage
 Add FindWDK to the module search path and call `find_package`:

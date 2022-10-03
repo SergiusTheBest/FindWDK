@@ -34,8 +34,6 @@
 #   target_link_libraries(KmdfCppDriver KmdfCppLib)
 #
 
-cmake_minimum_required(VERSION 3.18)
-
 if(DEFINED ENV{WDKContentRoot})
     file(GLOB WDK_NTDDK_FILES
         "$ENV{WDKContentRoot}/Include/*/km/ntddk.h" # WDK 10
@@ -49,7 +47,9 @@ else()
 endif()
 
 if(WDK_NTDDK_FILES)
-    list(SORT WDK_NTDDK_FILES COMPARE NATURAL) # sort to use the latest available WDK
+    if (NOT CMAKE_VERSION VERSION_LESS 3.18.0)
+        list(SORT WDK_NTDDK_FILES COMPARE NATURAL) # sort to use the latest available WDK
+    endif()
     list(GET WDK_NTDDK_FILES -1 WDK_LATEST_NTDDK_FILE)
 endif()
 
