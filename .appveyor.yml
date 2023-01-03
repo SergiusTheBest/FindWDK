@@ -13,8 +13,16 @@ environment:
 
 matrix:
   fast_finish: true
-  
+
 shallow_clone: true
+
+skip_commits:
+  files:
+    - .github/
+    - .editorconfig
+    - .gitignore
+    - LICENSE
+    - README.md
 
 before_build:
   - cmake -Hsamples -Bbuild -G"%generator%"
