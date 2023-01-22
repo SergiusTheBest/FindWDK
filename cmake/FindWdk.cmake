@@ -157,6 +157,7 @@ macro(__wdk_set_common_properties)
     target_include_directories(${_target} SYSTEM PRIVATE
         "${WDK_ROOT}/Include/${WDK_INC_VERSION}/shared"
         "${WDK_ROOT}/Include/${WDK_INC_VERSION}/km"
+        "${WDK_ROOT}/Include/${WDK_INC_VERSION}/ucrt"
         )
 
     if(WDK_STL)
