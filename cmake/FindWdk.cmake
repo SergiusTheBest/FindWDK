@@ -47,7 +47,7 @@ else()
 endif()
 
 if(WDK_NTDDK_FILES)
-    if (NOT CMAKE_VERSION VERSION_LESS 3.18.0)
+    if(NOT CMAKE_VERSION VERSION_LESS 3.18.0)
         list(SORT WDK_NTDDK_FILES COMPARE NATURAL) # sort to use the latest available WDK
     endif()
     list(GET WDK_NTDDK_FILES -1 WDK_LATEST_NTDDK_FILE)
@@ -56,7 +56,7 @@ endif()
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(WDK REQUIRED_VARS WDK_LATEST_NTDDK_FILE)
 
-if (NOT WDK_LATEST_NTDDK_FILE)
+if(NOT WDK_LATEST_NTDDK_FILE)
     return()
 endif()
 
@@ -64,14 +64,14 @@ get_filename_component(WDK_ROOT ${WDK_LATEST_NTDDK_FILE} DIRECTORY)
 get_filename_component(WDK_ROOT ${WDK_ROOT} DIRECTORY)
 get_filename_component(WDK_VERSION ${WDK_ROOT} NAME)
 get_filename_component(WDK_ROOT ${WDK_ROOT} DIRECTORY)
-if (NOT WDK_ROOT MATCHES ".*/[0-9][0-9.]*$") # WDK 10 has a deeper nesting level
+if(NOT WDK_ROOT MATCHES ".*/[0-9][0-9.]*$") # WDK 10 has a deeper nesting level
     get_filename_component(WDK_ROOT ${WDK_ROOT} DIRECTORY) # go up once more
     set(WDK_LIB_VERSION "${WDK_VERSION}")
     set(WDK_INC_VERSION "${WDK_VERSION}")
 else() # WDK 8.0, 8.1
     set(WDK_INC_VERSION "")
     foreach(VERSION winv6.3 win8 win7)
-        if (EXISTS "${WDK_ROOT}/Lib/${VERSION}/")
+        if(EXISTS "${WDK_ROOT}/Lib/${VERSION}/")
             set(WDK_LIB_VERSION "${VERSION}")
             break()
         endif()
@@ -98,7 +98,7 @@ set(WDK_COMPILE_FLAGS
     "/FI${WDK_ADDITIONAL_FLAGS_FILE}" # include file to disable RTC
     )
 
-set(WDK_COMPILE_DEFINITIONS "WINNT=1")
+set(WDK_COMPILE_DEFINITIONS "WINNT=1;_NO_CRT_STDIO_INLINE")
 set(WDK_COMPILE_DEFINITIONS_DEBUG "MSC_NOOPT;DEPRECATE_DDK_FUNCTIONS=1;DBG=1")
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -134,17 +134,22 @@ foreach(LIBRARY IN LISTS WDK_LIBRARIES)
 endforeach(LIBRARY)
 unset(WDK_LIBRARIES)
 
-function(wdk_add_driver _target)
-    cmake_parse_arguments(WDK "" "KMDF;WINVER;NTDDI_VERSION" "" ${ARGN})
+macro(__wdk_set_common_properties)
+    if(WDK_EXCEPTIONS)
+        list(REMOVE_ITEM WDK_COMPILE_FLAGS "/kernel")
+    endif()
 
-    add_executable(${_target} ${WDK_UNPARSED_ARGUMENTS})
-
-    set_target_properties(${_target} PROPERTIES SUFFIX ".sys")
     set_target_properties(${_target} PROPERTIES COMPILE_OPTIONS "${WDK_COMPILE_FLAGS}")
+
     set_target_properties(${_target} PROPERTIES COMPILE_DEFINITIONS
         "${WDK_COMPILE_DEFINITIONS};$<$<CONFIG:Debug>:${WDK_COMPILE_DEFINITIONS_DEBUG}>;_WIN32_WINNT=${WDK_WINVER}"
         )
     set_target_properties(${_target} PROPERTIES LINK_FLAGS "${WDK_LINK_FLAGS}")
+
+    if(WDK_EXCEPTIONS)
+        target_compile_definitions(${_target} PRIVATE _HAS_EXCEPTIONS=1 $<$<CONFIG:Debug>:_ITERATOR_DEBUG_LEVEL=1>)
+    endif()
+
     if(WDK_NTDDI_VERSION)
         target_compile_definitions(${_target} PRIVATE NTDDI_VERSION=${WDK_NTDDI_VERSION})
     endif()
@@ -152,8 +157,32 @@ function(wdk_add_driver _target)
     target_include_directories(${_target} SYSTEM PRIVATE
         "${WDK_ROOT}/Include/${WDK_INC_VERSION}/shared"
         "${WDK_ROOT}/Include/${WDK_INC_VERSION}/km"
-        "${WDK_ROOT}/Include/${WDK_INC_VERSION}/km/crt"
         )
+
+    if(WDK_STL)
+        target_include_directories(${_target} SYSTEM BEFORE PRIVATE
+            # get STL path: C:/.../2019/Community/VC/Tools/MSVC/14.29.30133/bin/Hostx64/x64/cl.exe -> C:/.../2019/Community/VC/Tools/MSVC/14.29.30133/include
+            "${CMAKE_CXX_COMPILER}/../../../../include"
+            )
+        target_compile_definitions(${_target} PRIVATE
+            _ACRTIMP=
+            _USE_STD_VECTOR_ALGORITHMS=0
+            )
+    endif()
+
+    if(WDK_KMDF)
+        target_include_directories(${_target} SYSTEM PRIVATE "${WDK_ROOT}/Include/wdf/kmdf/${WDK_KMDF}")
+    endif()
+endmacro()
+
+function(wdk_add_driver _target)
+    cmake_parse_arguments(WDK "STL;EXCEPTIONS" "KMDF;WINVER;NTDDI_VERSION" "" ${ARGN})
+
+    add_executable(${_target} ${WDK_UNPARSED_ARGUMENTS})
+
+    __wdk_set_common_properties()
+
+    set_target_properties(${_target} PROPERTIES SUFFIX ".sys")
 
     target_link_libraries(${_target} WDK::NTOSKRNL WDK::HAL WDK::BUFFEROVERFLOWK WDK::WMILIB)
 
@@ -162,7 +191,6 @@ function(wdk_add_driver _target)
     endif()
 
     if(DEFINED WDK_KMDF)
-        target_include_directories(${_target} SYSTEM PRIVATE "${WDK_ROOT}/Include/wdf/kmdf/${WDK_KMDF}")
         target_link_libraries(${_target}
             "${WDK_ROOT}/Lib/wdf/kmdf/${WDK_PLATFORM}/${WDK_KMDF}/WdfDriverEntry.lib"
             "${WDK_ROOT}/Lib/wdf/kmdf/${WDK_PLATFORM}/${WDK_KMDF}/WdfLdr.lib"
@@ -183,25 +211,9 @@ function(wdk_add_driver _target)
 endfunction()
 
 function(wdk_add_library _target)
-    cmake_parse_arguments(WDK "" "KMDF;WINVER;NTDDI_VERSION" "" ${ARGN})
+    cmake_parse_arguments(WDK "STL;EXCEPTIONS" "KMDF;WINVER;NTDDI_VERSION" "" ${ARGN})
 
     add_library(${_target} ${WDK_UNPARSED_ARGUMENTS})
 
-    set_target_properties(${_target} PROPERTIES COMPILE_OPTIONS "${WDK_COMPILE_FLAGS}")
-    set_target_properties(${_target} PROPERTIES COMPILE_DEFINITIONS
-        "${WDK_COMPILE_DEFINITIONS};$<$<CONFIG:Debug>:${WDK_COMPILE_DEFINITIONS_DEBUG};>_WIN32_WINNT=${WDK_WINVER}"
-        )
-    if(WDK_NTDDI_VERSION)
-        target_compile_definitions(${_target} PRIVATE NTDDI_VERSION=${WDK_NTDDI_VERSION})
-    endif()
-
-    target_include_directories(${_target} SYSTEM PRIVATE
-        "${WDK_ROOT}/Include/${WDK_INC_VERSION}/shared"
-        "${WDK_ROOT}/Include/${WDK_INC_VERSION}/km"
-        "${WDK_ROOT}/Include/${WDK_INC_VERSION}/km/crt"
-        )
-
-    if(DEFINED WDK_KMDF)
-        target_include_directories(${_target} SYSTEM PRIVATE "${WDK_ROOT}/Include/wdf/kmdf/${WDK_KMDF}")
-    endif()
+    __wdk_set_common_properties()
 endfunction()
