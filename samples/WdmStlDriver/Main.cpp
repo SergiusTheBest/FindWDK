@@ -834,8 +834,8 @@ bool memoryTest()
     auto deleter = [&](void*) { deleterCalled = true; };
 
     {
-        std::unique_ptr<void, decltype(deleter)> intPtr(reinterpret_cast<void*>(0x1234), deleter);
-        CHECK_AND_RETURN(intPtr);
+        std::unique_ptr<void, decltype(deleter)> uptr(reinterpret_cast<void*>(0x1234), deleter);
+        CHECK_AND_RETURN(uptr);
     }
 
     CHECK_AND_RETURN(deleterCalled);
@@ -856,8 +856,8 @@ bool newTest()
 
     char buf[sizeof(C)];
 
-    C* c = new(buf) C;
-    //c->~C(); // you should define placement delete to uncomment this line
+    C* c = new(buf) C; // call built-in placement new
+    //c->~C(); // unfortunately you should define placement delete to uncomment this line
 
     CHECK_AND_RETURN(c == static_cast<void*>(buf));
     CHECK_AND_RETURN(constructorCalled);
