@@ -6,6 +6,8 @@ CMake module for building drivers with Windows Development Kit (WDK) [![Build st
   - [Kernel driver](#kernel-driver)
   - [Kernel library](#kernel-library)
   - [Linking to WDK libraries](#linking-to-wdk-libraries)
+  - [Usage of MSVC STL](usage-of-msvc-stl)
+  - [Usage of C++ exceptions](usage-of-c-exceptions)
 - [Samples](#samples)
 - [License](#license)
 - [Version history](#version-history)
@@ -44,6 +46,8 @@ wdk_add_driver(<name>
     [KMDF <kmdf_version>]
     [WINVER <winver_version>]
     [NTDDI_VERSION <ntddi_version>]
+    [STL]
+    [EXCEPTIONS]
     source1 [source2 ...]
     )
 ```
@@ -53,6 +57,8 @@ Options:
 - `KMDF <kmdf_version>` -- use KMDF and set KMDF version
 - `WINVER <winver_version>` -- use specific WINVER version
 - `NTDDI_VERSION <ntddi_version>` -- use specific NTDDI_VERSION
+- `STL` -- use MSVC STL
+- `EXCEPTIONS` -- enable C++ exceptions
 
 Example:
 
@@ -73,6 +79,8 @@ wdk_add_library(<name> [STATIC | SHARED]
     [KMDF <kmdf_version>]
     [WINVER <winver_version>]
     [NTDDI_VERSION <ntddi_version>]
+    [STL]
+    [EXCEPTIONS]
     source1 [source2 ...]
     )
 ```
@@ -82,6 +90,8 @@ Options:
 - `KMDF <kmdf_version>` -- use KMDF and set KMDF version
 - `WINVER <winver_version>` -- use specific WINVER version
 - `NTDDI_VERSION <ntddi_version>` -- use specific NTDDI_VERSION
+- `STL` -- use MSVC STL
+- `EXCEPTIONS` -- enable C++ exceptions
 - `STATIC or SHARED` -- specify the type of library to be created
 
 Example:
@@ -101,6 +111,14 @@ FindWDK creates imported targets for all WDK libraries. The naming pattern is `W
 ```cmake
 target_link_libraries(MinifilterCppDriver WDK::FLTMGR)
 ```
+
+## Usage of MSVC STL
+Kenel mode code can use a large part of MSVC STL. Note that Microsoft doesn't officially support it (however there are some [activities](https://github.com/microsoft/STL/pull/2040) toward it). In [WdmStlDriver](samples/WdmStlDriver/Main.cpp) you can find the status of STL headers and basic tests for their functionality. 
+
+> **Note** [WdmStlDriver](samples/WdmStlDriver/Main.cpp) supports VS2019 and VS2022 however STL should work with VS2017 too.
+
+## Usage of C++ exceptions
+C++ exceptions require a helper library that implements the internal machinery behind exceptions (for example [avakar/vcrtl](https://github.com/avakar/vcrtl). FindWDK just changes compiler options and do not provide this kind of a library. However there is [WdmJxyStlDriver](samples/WdmJxyStlDriver/Main.cpp) sample that uses [jxy-s/stlkrn](https://github.com/jxy-s/stlkrn) to check that everything compiles and works fine.
 
 # Samples
 Take a look at the [samples](samples) folder to see how WMD and KMDF drivers and libraries are built.
