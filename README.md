@@ -118,7 +118,7 @@ Kenel mode code can use a large part of MSVC STL. Note that Microsoft doesn't of
 > **Note** [WdmStlDriver](samples/WdmStlDriver/Main.cpp) supports VS2019 and VS2022 however STL should work with VS2017 too.
 
 ## Usage of C++ exceptions
-C++ exceptions require a helper library that implements the internal machinery behind exceptions (for example [avakar/vcrtl](https://github.com/avakar/vcrtl). FindWDK just changes compiler options and do not provide this kind of a library. However there is [WdmJxyStlDriver](samples/WdmJxyStlDriver/Main.cpp) sample that uses [jxy-s/stlkrn](https://github.com/jxy-s/stlkrn) to check that everything compiles and works fine.
+C++ exceptions require a helper library that implements the internal machinery behind exceptions (for example [avakar/vcrtl](https://github.com/avakar/vcrtl)). FindWDK just changes compiler options and do not provide this kind of a library. However there is [WdmJxyStlDriver](samples/WdmJxyStlDriver/Main.cpp) sample that uses [jxy-s/stlkrn](https://github.com/jxy-s/stlkrn) to check that everything compiles and works fine.
 
 # Samples
 Take a look at the [samples](samples) folder to see how WMD and KMDF drivers and libraries are built.
