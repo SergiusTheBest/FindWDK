@@ -1,0 +1,5 @@
+@PACKAGE_INIT@
+
+set_and_check("@TARGET_NAME@_INCLUDE_DIR" "@PACKAGE_INCLUDE_INSTALL_DIR@")
+
+check_required_components("@TARGET_NAME@")
