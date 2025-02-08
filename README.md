@@ -3,7 +3,11 @@
 CMake module for building drivers with Windows Development Kit (WDK) [![Build status](https://ci.appveyor.com/api/projects/status/o7cyircahkb6nv07/branch/master?svg=true)](https://ci.appveyor.com/project/SergiusTheBest/findwdk/branch/master) [![CI](https://github.com/SergiusTheBest/FindWDK/actions/workflows/ci.yml/badge.svg)](https://github.com/SergiusTheBest/FindWDK/actions/workflows/ci.yml)
 
 - [Introduction](#introduction)
+  - [Build](#build)
+  - [Install](#install)
 - [Usage](#usage)
+  - [Optional Usage](#optional-usage)
+  - [FindWDK Output Variables](#findwdk-output-variables)
   - [Kernel driver](#kernel-driver)
   - [Kernel library](#kernel-library)
   - [Linking to WDK libraries](#linking-to-wdk-libraries)
