@@ -79,8 +79,10 @@ else() # WDK 8.0, 8.1
     set(WDK_VERSION "${WDK_LIB_VERSION}")
 endif()
 
-message(STATUS "WDK_ROOT: " ${WDK_ROOT})
-message(STATUS "WDK_VERSION: " ${WDK_VERSION})
+if(NOT WDK_FIND_QUIETLY)
+    message(STATUS "WDK_ROOT: " ${WDK_ROOT})
+    message(STATUS "WDK_VERSION: " ${WDK_VERSION})
+endif()
 
 set(WDK_WINVER "0x0601" CACHE STRING "Default WINVER for WDK targets")
 set(WDK_NTDDI_VERSION "" CACHE STRING "Specified NTDDI_VERSION for WDK targets if needed")
