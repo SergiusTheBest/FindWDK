@@ -1,8 +1,13 @@
 # FindWDK
+
 CMake module for building drivers with Windows Development Kit (WDK) [![Build status](https://ci.appveyor.com/api/projects/status/o7cyircahkb6nv07/branch/master?svg=true)](https://ci.appveyor.com/project/SergiusTheBest/findwdk/branch/master) [![CI](https://github.com/SergiusTheBest/FindWDK/actions/workflows/ci.yml/badge.svg)](https://github.com/SergiusTheBest/FindWDK/actions/workflows/ci.yml)
 
 - [Introduction](#introduction)
+  - [Build](#build)
+  - [Install](#install)
 - [Usage](#usage)
+  - [Optional Usage](#optional-usage)
+  - [FindWDK Output Variables](#findwdk-output-variables)
   - [Kernel driver](#kernel-driver)
   - [Kernel library](#kernel-library)
   - [Linking to WDK libraries](#linking-to-wdk-libraries)
@@ -11,22 +16,61 @@ CMake module for building drivers with Windows Development Kit (WDK) [![Build st
 - [Version history](#version-history)
 
 # Introduction
+
 FindWDK makes it possible to build kernel drivers and kernel libraries with Windows Development Kit (WDK) and CMake.
 
 Requirements:
+
 - WDK 8.0 and higher
 - Visual Studio 2015 and higher
 - CMake 3.0 and higher
 
+## Build
+
+Though no source is in this installation, a simple CMakeLists.txt was included to allow installation of packages. Simply "build and install" like you would any other package.
+
+```powershell
+mkdir build-out
+cd build-out
+cmake ..
+MSBuild.exe FindWDK.sln
+```
+
+Didn't really need the build step, but thought it would be uniform.
+
+## Install
+
+Then from a administrator command prompt:
+
+```powershell
+MSBuild.exe INSTALL.vcxproj
+```
+
+You can find the files in `C:/Program Files (x86)/FindWDK`.
+
 # Usage
-Add FindWDK to the module search path and call `find_package`:
+
+If you installed the package in the above step, you just need to call `find_package` on it.
 
 ```cmake
-list(APPEND CMAKE_MODULE_PATH "<path_to_FindWDK>")
+find_package(FindWDK)
+```
+
+Then add the `INCLUDE_DIR` path to your `CMAKE_MODULE_PATH`:
+
+```cmake
+list(APPEND CMAKE_MODULE_PATH ${FindWDK_INCLUDE_DIR})
 find_package(WDK REQUIRED)
 ```
 
+## Optional Usage
+
+You may add `FindWDK` to the module search path and call `find_package`. if you did not perform the build and install. You can then replace `${FindWDK_INCLUDE_DIR}` with  `"<path_to_FindWDK>"` being the local path of FindWDK on your system.
+
+## FindWDK Output Variables
+
 FindWDK will search for the latest installed Windows Development Kit (WDK) and expose commands for creating kernel drivers and kernel libraries. Also the following variables will be defined:
+
 - `WDK_FOUND` -- if false, do not try to use WDK
 - `WDK_ROOT` -- where WDK is installed
 - `WDK_VERSION` -- the version of the selected WDK
@@ -36,6 +80,7 @@ FindWDK will search for the latest installed Windows Development Kit (WDK) and e
 `WDKContentRoot` environment variable overrides the default WDK search path.
 
 ## Kernel driver
+
 The following command adds a kernel driver target called `<name>` to be built from the source files listed in the command invocation:
 
 ```cmake
@@ -49,6 +94,7 @@ wdk_add_driver(<name>
 ```
 
 Options:
+
 - `EXCLUDE_FROM_ALL` -- exclude from the default build target
 - `KMDF <kmdf_version>` -- use KMDF and set KMDF version
 - `WINVER <winver_version>` -- use specific WINVER version
@@ -65,6 +111,7 @@ wdk_add_driver(KmdfCppDriver
 ```
 
 ## Kernel library
+
 The following command adds a kernel library target called `<name>` to be built from the source files listed in the command invocation:
 
 ```cmake
@@ -78,6 +125,7 @@ wdk_add_library(<name> [STATIC | SHARED]
 ```
 
 Options:
+
 - `EXCLUDE_FROM_ALL` -- exclude from the default build target
 - `KMDF <kmdf_version>` -- use KMDF and set KMDF version
 - `WINVER <winver_version>` -- use specific WINVER version
@@ -96,6 +144,7 @@ wdk_add_library(KmdfCppLib STATIC
 ```
 
 ## Linking to WDK libraries
+
 FindWDK creates imported targets for all WDK libraries. The naming pattern is `WDK::<UPPERCASED_LIBNAME>`. Linking a minifilter driver to `FltMgr.lib` is shown below:
 
 ```cmake
@@ -103,9 +152,11 @@ target_link_libraries(MinifilterCppDriver WDK::FLTMGR)
 ```
 
 # Samples
+
 Take a look at the [samples](samples) folder to see how WMD and KMDF drivers and libraries are built.
 
 # License
+
 FindWDK is licensed under the OSI-approved 3-clause BSD license. You can freely use it in your commercial or opensource software.
 
 # Version history
@@ -113,9 +164,11 @@ FindWDK is licensed under the OSI-approved 3-clause BSD license. You can freely 
 ## Version 1.0.2 (TBD)
 
 ## Version 1.0.1 (13 Mar 2018)
+
 - New: Add ability to link to WDK libraries
 - New: Add MinifilterCppDriver sample
 - Fix: W4 warnings in C version of the driver, add missing /W4 /WX for C compiler
 
 ## Version 1.0.0 (03 Feb 2018)
+
 - Initial public release

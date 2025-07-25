@@ -1,0 +1,8 @@
+@PACKAGE_INIT@
+
+set_and_check("@TARGET_NAME@_MODULE_DIR" "@PACKAGE_MODULE_INSTALL_DIR@")
+
+check_required_components("@TARGET_NAME@")
+
+list(APPEND CMAKE_MODULE_PATH "${@TARGET_NAME@_MODULE_DIR}")
+find_package(WDK REQUIRED)
