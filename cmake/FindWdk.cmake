@@ -163,10 +163,18 @@ function(wdk_add_driver _target)
 
     target_link_libraries(${_target} WDK::NTOSKRNL WDK::HAL WDK::WMILIB)
 
-    if(WDK::BUFFEROVERFLOWK)
-        target_link_libraries(${_target} WDK::BUFFEROVERFLOWK) # to support Windows 7 and Vista
-    else()
-        target_link_libraries(${_target} WDK::BUFFEROVERFLOWFASTFAILK)
+    if(WDK_WINVER LESS "0x0602") # If WINVER < 0x0602 (Windows 7 or lower)
+        if(TARGET WDK::BUFFEROVERFLOWK)
+            target_link_libraries(${_target} WDK::BUFFEROVERFLOWK)
+        else()
+            message(FATAL_ERROR "Targeting Win7 but BufferOverflowK.lib not found in WDK")
+        endif()
+    else() # Windows 8 and above
+        if(TARGET WDK::BUFFEROVERFLOWFASTFAILK)
+            target_link_libraries(${_target} WDK::BUFFEROVERFLOWFASTFAILK)
+        else()
+            target_link_libraries(${_target} WDK::BUFFEROVERFLOWK)
+        endif()
     endif()
 
     if(CMAKE_CXX_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64")
