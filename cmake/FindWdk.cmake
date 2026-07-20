@@ -197,6 +197,19 @@ string(CONCAT WDK_LINK_FLAGS
     "/VERSION:10.0 " #
     )
 
+if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
+    string(CONCAT WDK_LINK_FLAGS
+        "/HIGHENTROPYVA:NO " # Strip some user-space only flags so the kernel loader accepts our driver
+        "/TSAWARE:NO " # ^
+        "/BASE:0x1C0000000 " # Set an acceptable base address for a kernel driver
+        "/SECTION:INIT,DER " # Make the INIT section executable
+        )
+else()
+    string(CONCAT WDK_LINK_FLAGS
+        "/SECTION:INIT,d " #
+        )
+endif()
+
 # Generate imported targets for WDK lib files
 file(GLOB WDK_LIBRARIES "${WDK_ROOT}/Lib/${WDK_LIB_VERSION}/km/${WDK_PLATFORM}/*.lib")
 foreach(LIBRARY IN LISTS WDK_LIBRARIES)
