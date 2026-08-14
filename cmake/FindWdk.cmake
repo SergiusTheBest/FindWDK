@@ -185,11 +185,11 @@ function(wdk_add_driver _target)
 
     set_target_properties(${_target} PROPERTIES SUFFIX ".sys")
 
-    target_link_libraries(${_target} WDK::NTOSKRNL WDK::HAL WDK::BUFFEROVERFLOWK WDK::WMILIB)
-
     if(CMAKE_SIZEOF_VOID_P EQUAL 4)
         target_link_libraries(${_target} WDK::MEMCMP)
     endif()
+
+    target_link_libraries(${_target} WDK::NTOSKRNL WDK::HAL WDK::BUFFEROVERFLOWK WDK::WMILIB)
 
     if(DEFINED WDK_KMDF)
         target_link_libraries(${_target}
