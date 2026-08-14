@@ -161,6 +161,10 @@ function(wdk_add_driver _target)
         "${WDK_ROOT}/Include/${WDK_INC_VERSION}/km/crt"
         )
 
+    if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+        target_link_libraries(${_target} WDK::MEMCMP)
+    endif()
+
     target_link_libraries(${_target} WDK::NTOSKRNL WDK::HAL WDK::WMILIB)
 
     if(WDK_WINVER LESS "0x0602") # If WINVER < 0x0602 (Windows 7 or lower)
@@ -171,10 +175,6 @@ function(wdk_add_driver _target)
 
     if(CMAKE_CXX_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64")
         target_link_libraries(${_target} "arm64rt.lib")
-    endif()
-
-    if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-        target_link_libraries(${_target} WDK::MEMCMP)
     endif()
 
     if(DEFINED WDK_KMDF)
