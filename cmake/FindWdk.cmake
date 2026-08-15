@@ -90,16 +90,83 @@ set(WDK_NTDDI_VERSION "" CACHE STRING "Specified NTDDI_VERSION for WDK targets i
 set(WDK_ADDITIONAL_FLAGS_FILE "${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/wdkflags.h")
 file(WRITE ${WDK_ADDITIONAL_FLAGS_FILE} "#pragma runtime_checks(\"suc\", off)")
 
-set(WDK_COMPILE_FLAGS
-    "/Zp8" # set struct alignment
-    "/GF"  # enable string pooling
-    "/GR-" # disable RTTI
-    "/Gz" # __stdcall by default
-    "/kernel"  # create kernel mode binary
-    "/FIwarning.h" # disable warnings in WDK headers
-    "/FI${WDK_ADDITIONAL_FLAGS_FILE}" # include file to disable RTC
-	"/Oi" # enable intrinsic functions so that you can use functions like _disable or _enable
+if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
+    # Force-included shim that papers over two gaps in clang's MSVC
+    # kernel-intrinsic support:
+    #   1. clang < 20.1.0 declared __readcr4/__readcr8/__writecr4/__writecr8
+    #      with `unsigned long` instead of ULONG64, conflicting with wdm.h.
+    #      Fix landed via https://github.com/llvm/llvm-project/pull/122238.
+    #   2. _disable, _enable, __readcr0, __writecr0 are declared in
+    #      <intrin.h> but never inlined to instructions, so the linker hits
+    #      undefined symbols on KM code that uses them.
+    # Strategy: macro-rename clang's broken/missing-body decls aside, then
+    # provide our own static-inline asm bodies on the canonical names.
+    set(WDK_CLANG_COMPAT_FILE "${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/wdk_clang_compat.h")
+    set(_wdk_shim_contents "")
+    string(APPEND _wdk_shim_contents
+"#ifdef __clang__\n"
+"/* Hide clang's intrin.h decls (wrong types pre-20.1.0 and/or no body) so\n"
+" * wdm.h's prototypes are unchallenged; provide inline-asm bodies below. */\n"
+"#define _disable   __wdk_unused_clang_disable\n"
+"#define _enable    __wdk_unused_clang_enable\n"
+"#define __readcr0  __wdk_unused_clang_readcr0\n"
+"#define __readcr4  __wdk_unused_clang_readcr4\n"
+"#define __readcr8  __wdk_unused_clang_readcr8\n"
+"#define __writecr0 __wdk_unused_clang_writecr0\n"
+"#define __writecr4 __wdk_unused_clang_writecr4\n"
+"#define __writecr8 __wdk_unused_clang_writecr8\n"
+"#include <intrin.h>\n"
+"#undef _disable\n"
+"#undef _enable\n"
+"#undef __readcr0\n"
+"#undef __readcr4\n"
+"#undef __readcr8\n"
+"#undef __writecr0\n"
+"#undef __writecr4\n"
+"#undef __writecr8\n"
+"#ifdef __cplusplus\n"
+"extern \"C\" {\n"
+"#endif\n"
+"#define _WDK_DEF_RDCR(N) static __forceinline unsigned __int64 __readcr##N(void) { unsigned __int64 v; __asm__ __volatile__(\"movq %%cr\" #N \", %0\" : \"=r\"(v)); return v; }\n"
+"#define _WDK_DEF_WRCR(N) static __forceinline void __writecr##N(unsigned __int64 v) { __asm__ __volatile__(\"movq %0, %%cr\" #N :: \"r\"(v)); }\n"
+"static __forceinline void _disable(void) { __asm__ __volatile__(\"cli\" ::: \"memory\"); }\n"
+"static __forceinline void _enable(void)  { __asm__ __volatile__(\"sti\" ::: \"memory\"); }\n"
+"_WDK_DEF_RDCR(0) _WDK_DEF_RDCR(4) _WDK_DEF_RDCR(8)\n"
+"_WDK_DEF_WRCR(0) _WDK_DEF_WRCR(4) _WDK_DEF_WRCR(8)\n"
+"#undef _WDK_DEF_RDCR\n"
+"#undef _WDK_DEF_WRCR\n"
+"#ifdef __cplusplus\n"
+"}\n"
+"#endif\n"
+"#endif\n")
+    file(WRITE ${WDK_CLANG_COMPAT_FILE} "${_wdk_shim_contents}")
+
+    # clang-cl has no /kernel; approximate it: SIMD off (xmm/ymm in KM
+    # require explicit Ke{Save,Restore}FloatingPointState), security
+    # cookie + stack probes off (KM has no __chkstk / __security_cookie).
+    set(WDK_COMPILE_FLAGS
+        "/Zp8" "/GF" "/GR-" "/Gz" "/Oi"
+        "/GS-" "/Gs999999"
+        "/FIwarning.h"
+        -mno-sse -mno-sse2 -mno-sse3 -mno-ssse3
+        -mno-sse4.1 -mno-sse4.2
+        -mno-avx -mno-avx2 -mno-avx512f
+        -mno-mmx -mno-aes -mno-pclmul -mno-fma
+        -Wno-unused-command-line-argument
     )
+    list(APPEND WDK_COMPILE_FLAGS "/FI${WDK_CLANG_COMPAT_FILE}")
+else()
+    set(WDK_COMPILE_FLAGS
+        "/Zp8"          # set struct alignment
+        "/GF"           # enable string pooling
+        "/GR-"          # disable RTTI
+        "/Gz"           # __stdcall by default
+        "/kernel"       # create kernel mode binary
+        "/FIwarning.h"  # disable warnings in WDK headers
+        "/FI${WDK_ADDITIONAL_FLAGS_FILE}" # include file to disable RTC
+        "/Oi"           # intrinsic functions so _disable/_enable work
+    )
+endif()
 
 set(WDK_COMPILE_DEFINITIONS "WINNT=1")
 set(WDK_COMPILE_DEFINITIONS_DEBUG "MSC_NOOPT;DEPRECATE_DDK_FUNCTIONS=1;DBG=1")
@@ -129,6 +196,19 @@ string(CONCAT WDK_LINK_FLAGS
     "/SECTION:INIT,d " #
     "/VERSION:10.0 " #
     )
+
+if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
+    string(CONCAT WDK_LINK_FLAGS
+        "/HIGHENTROPYVA:NO " # Strip some user-space only flags so the kernel loader accepts our driver
+        "/TSAWARE:NO " # ^
+        "/BASE:0x1C0000000 " # Set an acceptable base address for a kernel driver
+        "/SECTION:INIT,DER " # Make the INIT section executable
+        )
+else()
+    string(CONCAT WDK_LINK_FLAGS
+        "/SECTION:INIT,d " #
+        )
+endif()
 
 # Generate imported targets for WDK lib files
 file(GLOB WDK_LIBRARIES "${WDK_ROOT}/Lib/${WDK_LIB_VERSION}/km/${WDK_PLATFORM}/*.lib")

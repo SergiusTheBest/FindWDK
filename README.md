@@ -151,6 +151,26 @@ FindWDK creates imported targets for all WDK libraries. The naming pattern is `W
 target_link_libraries(MinifilterCppDriver WDK::FLTMGR)
 ```
 
+## A note on `clang-cl`
+
+FindWDK has limited `clang-cl` support for Windows kernel driver compilation, however you might run into issues if you define a custom WDF context type.
+Due to a compiler quirk, it leads to a second, read-only `.data` section being created, which causes the kernel loader to reject the resulting driver.
+To work around this issue, you can use a hack like this:
+
+```c
+// By default, the context type definitions are const
+// This normally wouldn't be a problem, but when using Clang, it causes the creation of 
+// a second, read-only .data section. The Windows kernel loader does not like this,
+// and will fail to load the driver completely.
+// Use this awful hack to put the context structure in the right section
+#define const // Strip the const qualifier
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wextern-initializer" // Clang doesn't like initialized externs
+WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(YOUR_CONTEXT, yourGetContext)
+#undef const
+#pragma clang diagnostic pop
+```
+
 # Samples
 
 Take a look at the [samples](samples) folder to see how WMD and KMDF drivers and libraries are built.
